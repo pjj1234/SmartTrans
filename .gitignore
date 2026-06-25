@@ -1,0 +1,13 @@
+node_modules/
+dist/
+*.log
+
+# env
+.env
+server/.env
+
+# data (sqlite + uploads), keep knowledge corpus
+server/data/app.db
+server/data/app.db-*
+server/data/uploads/*
+!server/data/uploads/.gitkeep

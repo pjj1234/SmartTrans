@@ -1,0 +1,19 @@
+{
+  "name": "smarttrans",
+  "version": "0.1.0",
+  "private": true,
+  "description": "交通事故识别多智能体系统 (Express + Vue + Vercel AI SDK + RAG)",
+  "scripts": {
+    "dev": "concurrently -n server,web -c blue,green \"npm:dev:server\" \"npm:dev:web\"",
+    "dev:server": "npm --prefix server run dev",
+    "dev:web": "npm --prefix web run dev",
+    "build": "npm --prefix web run build",
+    "start": "npm --prefix server run start",
+    "rag:ingest": "npm --prefix server run rag:ingest",
+    "typecheck": "npm --prefix server run typecheck && npm --prefix web run typecheck",
+    "install:all": "npm install && npm --prefix server install && npm --prefix web install"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}
