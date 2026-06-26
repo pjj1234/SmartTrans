@@ -11,7 +11,6 @@ import knowledgeRoutes from './routes/knowledge.routes'
 import reportsRoutes from './routes/reports.routes'
 import { mcpRoutes } from './routes/mcp.routes'
 import { mcpManager } from './mcp/manager'
-import { pdfMcpHandler } from './mcp/pdf-endpoint'
 
 const log = createLogger('server')
 
@@ -28,9 +27,6 @@ app.use(express.json({ limit: '2mb' }))
 app.use(express.urlencoded({ extended: true }))
 
 app.use('/uploads', express.static(config.paths.uploads))
-
-// MCP PDF 工具端点（JSON-RPC 2.0 over HTTP）—— 需要原始 body 解析
-app.post('/api/mcp/pdf-tool', pdfMcpHandler)
 
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true })

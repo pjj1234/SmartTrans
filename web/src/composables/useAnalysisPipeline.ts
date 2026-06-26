@@ -2,6 +2,7 @@ import { reactive, ref } from 'vue'
 import type { UploadUserFile } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import { analyze, type StageEvent } from '@/api/client'
+import { compressImage } from '@/utils/compressImage'
 import type { AgentStep, AccidentReportView } from '@/types'
 
 export interface StepDef {
@@ -49,13 +50,16 @@ export function useAnalysisPipeline(stepDefs: StepDef[] = DEFAULT_STEPS) {
   }
 
   async function run(): Promise<void> {
-    const files = fileList.value
+    const rawFiles = fileList.value
       .map((f) => f.raw)
       .filter((f): f is NonNullable<typeof f> => Boolean(f))
-    if (files.length === 0 && !description.value.trim()) {
+    if (rawFiles.length === 0 && !description.value.trim()) {
       ElMessage.warning('请上传事故现场图片或填写文字描述')
       return
     }
+
+    // 自动压缩超过 512KB 的图片
+    const files = await Promise.all(rawFiles.map((f) => compressImage(f)))
     resetSteps()
     expandedKey.value = null
     running.value = true

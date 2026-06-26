@@ -290,8 +290,9 @@ class McpManager {
     seedPresetConnection({
       id: PDF_PRESET_ID,
       name: 'PDF报告生成器',
-      transport: 'http',
-      url: `http://localhost:${config.port}/api/mcp/pdf-tool`,
+      transport: 'stdio',
+      command: 'npx',
+      args: ['tsx', 'src/mcp/pdf-server.ts'],
       isSystem: true,
     })
     log.info('预置 MCP 连接已就绪 — PDF报告生成器')
