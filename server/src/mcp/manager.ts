@@ -212,7 +212,37 @@ class McpManager {
       const msg = e instanceof Error ? e.message : String(e)
       updateMcpStatus(id, 'error', msg)
       log.error(`MCP 连接失败 — ${cfg.name} (${id}): ${msg}`)
+      // 系统连接兜底：HTTP 连接失败时直接注入本地工具定义，不走网络
+      if (cfg.isSystem) {
+        entry.toolCache = this.getSystemToolDefs(cfg.id)
+        log.info(`系统连接 ${cfg.name} 已降级为本地调用模式`)
+      }
     }
+  }
+
+  /** 系统连接的工具定义（本地兜底，无需 HTTP） */
+  private getSystemToolDefs(connectionId: string): McpToolInfo[] {
+    if (connectionId === 'system-pdf-generator') {
+      return [
+        {
+          name: 'generate_report_pdf',
+          description:
+            '根据事故报告 JSON 生成 PDF 格式的交通事故分析报告并入库存储。接收完整的结构化报告数据，返回生成的 PDF 文件路径。',
+          inputSchema: {
+            type: 'object' as const,
+            properties: {
+              reportJson: {
+                type: 'string',
+                description:
+                  '事故报告 JSON 字符串，需符合 AccidentReport 结构（title, summary, sceneSummary, severityLevel, liabilityConclusion, citedArticles, recommendations）',
+              },
+            },
+            required: ['reportJson'],
+          },
+        },
+      ]
+    }
+    return []
   }
 
   private async buildTransport(cfg: McpConnectionConfig): Promise<any> {

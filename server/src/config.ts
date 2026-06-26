@@ -15,7 +15,7 @@ function parseBool(val: string | undefined, fallback: boolean): boolean {
 }
 
 export const config = {
-  port: Number(process.env.PORT ?? 3000),
+  port: Number(process.env.PORT ?? 28123),
   paths: {
     serverRoot,
     data: path.join(serverRoot, 'data'),
