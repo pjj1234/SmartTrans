@@ -15,7 +15,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:expandedKey': [key: string | null]
-  configureMcp: [agentKey: string]
+  configureAgent: [agentKey: string]
 }>()
 
 const mcpEnabled = inject<boolean>('mcpEnabled', false)
@@ -61,6 +61,16 @@ function toggle(key: string): void {
             <el-icon v-if="step.status === 'process'" class="is-loading"><Loading /></el-icon>
             {{ tagText(step.status) }}
           </el-tag>
+          <el-tag
+            v-for="sn in step.skillNames"
+            :key="sn"
+            size="small"
+            type="warning"
+            effect="plain"
+            class="skill-tag"
+          >
+            {{ sn }}
+          </el-tag>
           <el-icon v-if="step.data" class="toggle-icon" :class="{ rotated: expandedKey === step.key }">
             <svg viewBox="0 0 1024 1024" width="14" height="14">
               <path
@@ -73,7 +83,7 @@ function toggle(key: string): void {
             v-if="mcpEnabled"
             class="gear-icon"
             title="配置 MCP 工具"
-            @click.stop="emit('configureMcp', step.key)"
+            @click.stop="emit('configureAgent', step.key)"
           >
             <Setting />
           </el-icon>

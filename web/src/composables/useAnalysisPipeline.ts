@@ -77,13 +77,17 @@ export function useAnalysisPipeline(stepDefs: StepDef[] = DEFAULT_STEPS) {
       await analyze(files, description.value, (ev: StageEvent) => {
         if (ev.type === 'stage_start') {
           const s = findStep(ev.stage)
-          if (s) s.status = 'process'
+          if (s) {
+            s.status = 'process'
+            s.skillNames = ev.skillNames ?? []
+          }
         } else if (ev.type === 'stage_complete') {
           expandedKey.value = ev.stage ?? null
           const s = findStep(ev.stage)
           if (s) {
             s.status = 'finish'
             s.data = ev.data
+            s.skillNames = ev.skillNames ?? []
           }
         } else if (ev.type === 'done') {
           finalReport.value = ev.report as AccidentReportView

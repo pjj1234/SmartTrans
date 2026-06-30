@@ -2,6 +2,8 @@ import { createLogger } from '../utils/logger'
 import { visionModel } from '../providers/index'
 import { sceneSchema, type SceneDescription } from './schemas'
 import { generateStructured } from './helpers'
+import { formatSkillForSystemPrompt } from '../skills/inject'
+import type { SkillPromptInjection } from '../skills/types'
 
 const log = createLogger('vision-agent')
 
@@ -12,6 +14,7 @@ export async function recognizeScene(
   images: Buffer[],
   description: string,
   tools?: Record<string, any>,
+  skills?: SkillPromptInjection[],
 ): Promise<SceneDescription> {
   log.info(`开始识别 — 图片 ${images.length} 张, 描述: "${description.slice(0, 80)}"`)
 
@@ -23,12 +26,13 @@ export async function recognizeScene(
     ...images.map((image): ContentPart => ({ type: 'image', image })),
   ]
 
+  const skillBlock = formatSkillForSystemPrompt(skills ?? [])
   const object = await generateStructured<SceneDescription>({
     model: visionModel,
     schema: sceneSchema,
     tools,
     system:
-      '你是交通事故现场图像识别智能体。只描述图片中客观可见的信息，不臆测，未知信息如实标注。',
+      '你是交通事故现场图像识别智能体。只描述图片中客观可见的信息，不臆测，未知信息如实标注。' + skillBlock,
     messages: [{ role: 'user', content }],
   })
 

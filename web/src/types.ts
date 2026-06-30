@@ -4,6 +4,7 @@ export interface AgentStep {
   label: string
   status: 'wait' | 'process' | 'finish' | 'error'
   data?: unknown
+  skillNames?: string[]
 }
 
 // ---- Agent output types (mirrors server/src/agents/schemas.ts) ----

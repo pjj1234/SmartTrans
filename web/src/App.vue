@@ -31,6 +31,7 @@ onMounted(async () => {
         <el-menu-item index="/">事故分析</el-menu-item>
         <el-menu-item index="/history">历史报告</el-menu-item>
         <el-menu-item index="/knowledge">法规知识库</el-menu-item>
+        <el-menu-item index="/skills">技能管理</el-menu-item>
         <el-menu-item v-if="mcpEnabled" index="/mcp">MCP设置</el-menu-item>
       </el-menu>
     </el-header>

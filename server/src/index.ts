@@ -11,6 +11,8 @@ import knowledgeRoutes from './routes/knowledge.routes'
 import reportsRoutes from './routes/reports.routes'
 import { mcpRoutes } from './routes/mcp.routes'
 import { mcpManager } from './mcp/manager'
+import { skillsRoutes } from './routes/skills.routes'
+import { skillsManager } from './skills/manager'
 
 const log = createLogger('server')
 
@@ -34,6 +36,7 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/reports', reportsRoutes)
 app.use('/api/knowledge', knowledgeRoutes)
 app.use('/api/mcp', mcpRoutes)
+app.use('/api/skills', skillsRoutes)
 app.use('/api', analysisRoutes)
 
 const webDist = path.resolve(config.paths.serverRoot, '..', 'web', 'dist')
@@ -51,6 +54,8 @@ app.use(errorHandler)
 
 // 初始化 MCP Manager（后台异步，不阻塞服务启动）
 mcpManager.initialize().catch((e) => log.error('MCP 初始化失败', e))
+// 初始化 Skills Manager（后台异步，不阻塞服务启动）
+skillsManager.initialize().catch((e) => log.error('Skills 初始化失败', e))
 
 const server = app.listen(config.port, () => {
   log.info(`服务启动 — http://localhost:${config.port}`)
@@ -71,7 +76,13 @@ async function gracefulShutdown(signal: string) {
   } catch (e) {
     log.warn('关闭 MCP 时出错', e)
   }
-  // 3. 关闭 SQLite 数据库
+  // 3. 关闭 Skills Manager
+  try {
+    await skillsManager.shutdown()
+  } catch (e) {
+    log.warn('关闭 Skills 时出错', e)
+  }
+  // 4. 关闭 SQLite 数据库
   try {
     db.close()
     log.info('数据库已关闭')

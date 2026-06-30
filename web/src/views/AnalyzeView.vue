@@ -3,7 +3,7 @@ import { ref, inject } from 'vue'
 import { Plus, Refresh } from '@element-plus/icons-vue'
 import { useAnalysisPipeline } from '@/composables/useAnalysisPipeline'
 import AgentProgress from '@/components/AgentProgress.vue'
-import AgentMcpDialog from '@/components/AgentMcpDialog.vue'
+import AgentSettingsDialog from '@/components/AgentSettingsDialog.vue'
 
 defineOptions({ name: 'AnalyzeView' })
 
@@ -21,10 +21,10 @@ const {
   resetAll,
 } = useAnalysisPipeline()
 
-// MCP 配置对话框状态
-const mcpDialogVisible = ref(false)
-const mcpDialogAgent = ref('')
-const mcpDialogLabel = ref('')
+// 智能体设置对话框状态（MCP + Skills）
+const settingsDialogVisible = ref(false)
+const settingsDialogAgent = ref('')
+const settingsDialogLabel = ref('')
 
 const STEP_LABELS: Record<string, string> = {
   vision: '图像识别智能体',
@@ -33,10 +33,10 @@ const STEP_LABELS: Record<string, string> = {
   report: '报告生成智能体',
 }
 
-function onConfigureMcp(agentKey: string) {
-  mcpDialogAgent.value = agentKey
-  mcpDialogLabel.value = STEP_LABELS[agentKey] ?? agentKey
-  mcpDialogVisible.value = true
+function onConfigureAgent(agentKey: string) {
+  settingsDialogAgent.value = agentKey
+  settingsDialogLabel.value = STEP_LABELS[agentKey] ?? agentKey
+  settingsDialogVisible.value = true
 }
 </script>
 
@@ -88,16 +88,16 @@ function onConfigureMcp(agentKey: string) {
           <AgentProgress
             v-model:expanded-key="expandedKey"
             :steps="steps"
-            @configure-mcp="onConfigureMcp"
+            @configure-agent="onConfigureAgent"
           />
         </el-card>
 
       </el-col>
 
-    <AgentMcpDialog
-      v-model:visible="mcpDialogVisible"
-      :agent-name="mcpDialogAgent"
-      :agent-label="mcpDialogLabel"
+    <AgentSettingsDialog
+      v-model:visible="settingsDialogVisible"
+      :agent-name="settingsDialogAgent"
+      :agent-label="settingsDialogLabel"
     />
     </el-row>
   </div>

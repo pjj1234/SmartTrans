@@ -14,5 +14,10 @@ export const router = createRouter({
       name: 'mcp',
       component: () => import('./views/McpSettingsView.vue'),
     },
+    {
+      path: '/skills',
+      name: 'skills',
+      component: () => import('./views/SkillsView.vue'),
+    },
   ],
 })

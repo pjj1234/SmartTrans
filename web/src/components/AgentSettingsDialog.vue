@@ -1,0 +1,264 @@
+<script setup lang="ts">
+import { ref, watch, computed } from 'vue'
+import { ElMessage } from 'element-plus'
+import {
+  listMcpConnections,
+  getAgentMcpSettings,
+  updateAgentMcpSetting,
+  listSkills,
+  getAgentSkillSettings,
+  updateAgentSkillSetting,
+  type McpConnectionStatus,
+  type AgentMcpSetting,
+  type SkillMeta,
+  type AgentSkillSetting,
+} from '@/api/client'
+
+defineOptions({ name: 'AgentSettingsDialog' })
+
+const props = defineProps<{
+  visible: boolean
+  agentName: string
+  agentLabel: string
+}>()
+const emit = defineEmits<{ 'update:visible': [v: boolean] }>()
+
+const dialogVisible = ref(props.visible)
+watch(() => props.visible, (v) => { dialogVisible.value = v })
+watch(dialogVisible, (v) => emit('update:visible', v))
+
+// ---- MCP ----
+const connections = ref<McpConnectionStatus[]>([])
+const mcpSettings = ref<AgentMcpSetting[]>([])
+const loadingMcp = ref(false)
+const savingMcp = ref(false)
+
+const mcpEnabledMap = computed(() => {
+  const map: Record<string, boolean> = {}
+  for (const s of mcpSettings.value) map[s.mcpConnectionId] = s.enabled
+  for (const c of connections.value) {
+    if (!(c.id in map)) map[c.id] = false
+  }
+  return map
+})
+
+async function loadMcp() {
+  loadingMcp.value = true
+  try {
+    const [conns, sets] = await Promise.all([
+      listMcpConnections(),
+      getAgentMcpSettings(props.agentName),
+    ])
+    connections.value = conns.filter((c) => c.status === 'connected')
+    mcpSettings.value = sets
+  } catch {
+    ElMessage.error('加载 MCP 数据失败')
+  } finally {
+    loadingMcp.value = false
+  }
+}
+
+async function toggleMcp(mcpId: string, enabled: boolean) {
+  savingMcp.value = true
+  try {
+    await updateAgentMcpSetting(props.agentName, mcpId, enabled)
+    const existing = mcpSettings.value.find((s) => s.mcpConnectionId === mcpId)
+    if (existing) {
+      existing.enabled = enabled
+    } else {
+      mcpSettings.value.push({ agentName: props.agentName, mcpConnectionId: mcpId, enabled })
+    }
+  } catch (e) {
+    ElMessage.error(e instanceof Error ? e.message : '保存失败')
+  } finally {
+    savingMcp.value = false
+  }
+}
+
+// ---- Skills ----
+const skills = ref<SkillMeta[]>([])
+const skillSettings = ref<AgentSkillSetting[]>([])
+const loadingSkills = ref(false)
+const savingSkill = ref<string | null>(null)
+
+const skillEnabledMap = computed(() => {
+  const map: Record<string, boolean> = {}
+  for (const s of skillSettings.value) map[s.skillId] = s.enabled
+  return map
+})
+
+async function loadSkills() {
+  loadingSkills.value = true
+  try {
+    const [allSkills, sets] = await Promise.all([
+      listSkills(),
+      getAgentSkillSettings(props.agentName),
+    ])
+    // 只显示全局启用的 skills
+    skills.value = allSkills.filter((s) => s.enabled)
+    skillSettings.value = sets.filter((s) => skills.value.some((sk) => sk.id === s.skillId))
+  } catch {
+    ElMessage.error('加载 Skills 数据失败')
+  } finally {
+    loadingSkills.value = false
+  }
+}
+
+async function toggleSkill(skillId: string, enabled: boolean) {
+  savingSkill.value = skillId
+  try {
+    await updateAgentSkillSetting(props.agentName, skillId, enabled)
+    const existing = skillSettings.value.find((s) => s.skillId === skillId)
+    if (existing) {
+      existing.enabled = enabled
+    } else {
+      skillSettings.value.push({ agentName: props.agentName, skillId, enabled })
+    }
+  } catch (e) {
+    ElMessage.error(e instanceof Error ? e.message : '保存失败')
+  } finally {
+    savingSkill.value = null
+  }
+}
+
+watch(dialogVisible, (v) => {
+  if (v) {
+    loadMcp()
+    loadSkills()
+  }
+})
+</script>
+
+<template>
+  <el-dialog
+    v-model="dialogVisible"
+    :title="`${agentLabel} — 工具与技能配置`"
+    width="580px"
+    :close-on-click-modal="false"
+  >
+    <!-- MCP 工具 -->
+    <div v-loading="loadingMcp" class="section">
+      <h4 class="section-title">MCP 工具</h4>
+      <el-empty v-if="!loadingMcp && connections.length === 0" description="暂无已连接的 MCP 服务器" />
+      <div v-else class="item-list">
+        <div v-for="conn in connections" :key="conn.id" class="item-row">
+          <div class="item-info">
+            <div class="item-name">{{ conn.name }}</div>
+            <div class="item-tags">
+              <el-tag
+                v-for="t in conn.tools"
+                :key="t.name"
+                size="small"
+                type="info"
+                effect="plain"
+                class="tag"
+              >
+                {{ t.name }}
+              </el-tag>
+              <span v-if="!conn.tools.length" class="no-items">暂无工具</span>
+            </div>
+          </div>
+          <el-switch
+            :model-value="mcpEnabledMap[conn.id]"
+            :loading="savingMcp"
+            @change="toggleMcp(conn.id, $event as unknown as boolean)"
+          />
+        </div>
+      </div>
+    </div>
+
+    <el-divider />
+
+    <!-- Skills -->
+    <div v-loading="loadingSkills" class="section">
+      <h4 class="section-title">
+        Skills
+        <span class="section-hint">（仅显示已在技能管理中启用的 Skills）</span>
+      </h4>
+      <el-empty v-if="!loadingSkills && skills.length === 0" description="暂无启用的 Skills" />
+      <div v-else class="item-list">
+        <div v-for="skill in skills" :key="skill.id" class="item-row">
+          <div class="item-info">
+            <div class="item-name">
+              {{ skill.name }}
+              <el-tag v-if="skill.isSystem" size="small" type="info" effect="plain" class="sys-tag">系统</el-tag>
+            </div>
+            <div class="item-desc">{{ skill.description }}</div>
+          </div>
+          <el-switch
+            :model-value="!!skillEnabledMap[skill.id]"
+            :loading="savingSkill === skill.id"
+            @change="toggleSkill(skill.id, $event as unknown as boolean)"
+          />
+        </div>
+      </div>
+    </div>
+
+    <template #footer>
+      <el-button @click="dialogVisible = false">关闭</el-button>
+    </template>
+  </el-dialog>
+</template>
+
+<style scoped>
+.section {
+  min-height: 40px;
+}
+.section-title {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+.section-hint {
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+.item-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.item-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  background: var(--el-fill-color-lighter);
+}
+.item-info {
+  flex: 1;
+  min-width: 0;
+}
+.item-name {
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+.item-desc {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.item-tags {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  line-height: 1.6;
+}
+.tag {
+  margin: 0 4px 2px 0;
+}
+.sys-tag {
+  margin-left: 6px;
+}
+.no-items {
+  font-style: italic;
+  font-size: 12px;
+}
+</style>

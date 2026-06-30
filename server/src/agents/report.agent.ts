@@ -8,6 +8,8 @@ import {
   type SeverityAssessment,
 } from './schemas'
 import { generateStructured } from './helpers'
+import { formatSkillForSystemPrompt } from '../skills/inject'
+import type { SkillPromptInjection } from '../skills/types'
 
 const log = createLogger('report-agent')
 
@@ -20,16 +22,18 @@ export async function generateReport(
     description: string
   },
   tools?: Record<string, any>,
+  skills?: SkillPromptInjection[],
 ): Promise<AccidentReport> {
   const inputCitedCount = input.liability.citedArticles?.length ?? 0
   log.info(`开始生成报告 — 输入 citedArticles=${inputCitedCount}`)
 
+  const skillBlock = formatSkillForSystemPrompt(skills ?? [])
   const object = await generateStructured<AccidentReport>({
     model: reasoningModel,
     schema: reportSchema,
     tools,
     system:
-      '你是交通事故报告生成智能体。综合现场识别、严重程度与责任判定，生成客观、条理清晰的结构化事故分析报告，并给出处理建议。citedArticles 必须直接使用责任判定中给出的法条，严禁凭记忆编造或补充任何法条。',
+      '你是交通事故报告生成智能体。综合现场识别、严重程度与责任判定，生成客观、条理清晰的结构化事故分析报告，并给出处理建议。citedArticles 必须直接使用责任判定中给出的法条，严禁凭记忆编造或补充任何法条。' + skillBlock,
     prompt: `补充描述：${input.description || '（无）'}\n\n现场识别：\n${JSON.stringify(
       input.scene,
     )}\n\n严重程度：\n${JSON.stringify(input.severity)}\n\n责任判定：\n${JSON.stringify(

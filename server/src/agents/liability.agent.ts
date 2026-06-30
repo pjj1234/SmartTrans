@@ -8,6 +8,8 @@ import {
   type SeverityAssessment,
 } from './schemas'
 import { generateStructured } from './helpers'
+import { formatSkillForSystemPrompt } from '../skills/inject'
+import type { SkillPromptInjection } from '../skills/types'
 
 const log = createLogger('liability-agent')
 
@@ -17,6 +19,7 @@ export async function analyzeLiability(
   severity: SeverityAssessment,
   description: string,
   tools?: Record<string, any>,
+  skills?: SkillPromptInjection[],
 ): Promise<{ analysis: LiabilityAnalysis; legalContext: string }> {
   const query = `${scene.sceneSummary} ${description} 交通事故责任认定`
   log.info(`RAG 检索 — query: "${query.slice(0, 100)}"`)
@@ -30,9 +33,10 @@ export async function analyzeLiability(
   }
 
   const legalContext = formatLegalContext(chunks)
+  const skillBlock = formatSkillForSystemPrompt(skills ?? [])
   const system = hasArticles
-    ? '你是交通事故责任判定智能体。必须严格依据给出的法律法规条文进行责任划分，所有责任比例之和应为 100。citedArticles 只能引用下方提供的法条（格式："来源 条号"），严禁引用未提供的条文。'
-    : '你是交通事故责任判定智能体。所有责任比例之和应为 100。当前知识库中未检索到相关法律法规，citedArticles 必须为空数组 []，严禁凭记忆编造任何法条。在 conclusion 中如实说明"未检索到相关法条，以下判定基于通用交通规则常识"。'
+    ? '你是交通事故责任判定智能体。必须严格依据给出的法律法规条文进行责任划分，所有责任比例之和应为 100。citedArticles 只能引用下方提供的法条（格式："来源 条号"），严禁引用未提供的条文。' + skillBlock
+    : '你是交通事故责任判定智能体。所有责任比例之和应为 100。当前知识库中未检索到相关法律法规，citedArticles 必须为空数组 []，严禁凭记忆编造任何法条。在 conclusion 中如实说明"未检索到相关法条，以下判定基于通用交通规则常识"。' + skillBlock
 
   log.debug('system prompt', system.slice(0, 150))
 

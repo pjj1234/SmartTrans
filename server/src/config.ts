@@ -23,6 +23,7 @@ export const config = {
     knowledge: path.join(serverRoot, 'data', 'knowledge'),
     pdfs: path.join(serverRoot, 'data', 'pdfs'),
     fonts: path.join(serverRoot, 'data', 'fonts'),
+    skills: path.join(serverRoot, 'data', 'skills'),
     db: path.join(serverRoot, 'data', 'app.db'),
   },
   vision: {

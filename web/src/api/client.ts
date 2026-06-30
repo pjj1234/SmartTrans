@@ -3,6 +3,7 @@ export interface StageEvent {
   stage?: string
   label?: string
   data?: unknown
+  skillNames?: string[]
   reportId?: string
   report?: unknown
   message?: string
@@ -262,4 +263,106 @@ export async function updateAgentMcpSetting(
 /** 下载报告 PDF */
 export function downloadReportPdf(id: string): void {
   window.open(`/api/reports/${id}/pdf`, '_blank')
+}
+
+// ---- Skills ----
+
+export interface SkillMeta {
+  id: string
+  name: string
+  description: string
+  sourcePath: string
+  filesJson: string[]
+  providerRef: string | null
+  uploadStatus: 'local' | 'uploaded' | 'failed'
+  isSystem: boolean
+  enabled: boolean
+  createdAt: string
+}
+
+export interface ParsedSkill {
+  name: string
+  description: string
+  instructions: string
+  files: { path: string; content: string }[]
+}
+
+export interface SkillWithContent {
+  meta: SkillMeta
+  parsed: ParsedSkill
+}
+
+export interface AgentSkillSetting {
+  agentName: string
+  skillId: string
+  enabled: boolean
+}
+
+export interface ProviderCapabilities {
+  supportsNativeSkills: boolean
+}
+
+/** 列出所有 skills */
+export async function listSkills(): Promise<SkillMeta[]> {
+  return (await fetch('/api/skills')).json()
+}
+
+/** 获取单个 skill 完整内容 */
+export async function getSkill(id: string): Promise<SkillWithContent> {
+  return (await fetch(`/api/skills/${id}`)).json()
+}
+
+/** 创建 skill（multipart） */
+export async function createSkill(skillMd: string, files?: { path: string; content: string }[]): Promise<SkillMeta> {
+  const res = await fetch('/api/skills', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ skillMd, files: files ?? [] }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
+    throw new Error((err as { error?: string }).error ?? `HTTP ${res.status}`)
+  }
+  return res.json()
+}
+
+/** 删除 skill */
+export async function deleteSkill(id: string): Promise<void> {
+  const res = await fetch(`/api/skills/${id}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error(`删除失败: HTTP ${res.status}`)
+}
+
+/** 获取 agent-skill 绑定 */
+export async function getAgentSkillSettings(agentName?: string): Promise<AgentSkillSetting[]> {
+  const query = agentName ? `?agent=${encodeURIComponent(agentName)}` : ''
+  return (await fetch(`/api/skills/bindings/agent-settings${query}`)).json()
+}
+
+/** 更新 agent-skill 绑定 */
+export async function updateAgentSkillSetting(
+  agentName: string,
+  skillId: string,
+  enabled: boolean,
+): Promise<void> {
+  const res = await fetch('/api/skills/bindings/agent-settings', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ agentName, skillId, enabled }),
+  })
+  if (!res.ok) throw new Error(`更新失败: HTTP ${res.status}`)
+}
+
+/** 更新 skill 全局启用/禁用 */
+export async function updateSkillEnabled(id: string, enabled: boolean): Promise<void> {
+  const res = await fetch(`/api/skills/${id}/enabled`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled }),
+  })
+  if (!res.ok) throw new Error(`更新失败: HTTP ${res.status}`)
+}
+
+/** 查询 provider 是否支持 native uploadSkill */
+export async function getProviderCapabilities(): Promise<ProviderCapabilities> {
+  return (await fetch('/api/skills/meta/provider-capabilities')).json()
 }
