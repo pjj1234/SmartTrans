@@ -1,9 +1,9 @@
 import { createLogger } from '../utils/logger'
 import { reasoningModel } from '../providers/index'
-import { severitySchema, type SceneDescription, type SeverityAssessment } from './schemas'
+import { getSchemas, type SceneDescription, type SeverityAssessment } from './schemas'
 import { generateStructured } from './helpers'
 import { formatSkillForSystemPrompt } from '../skills/inject'
-import { SEVERITY_SYSTEM_PROMPT, severityUserPrompt } from '../i18n'
+import { SEVERITY_SYSTEM_PROMPT, severityUserPrompt, LANGUAGE_ENFORCEMENT, LANGUAGE_PREFIX } from '../i18n'
 import type { SupportedLanguage } from '../i18n'
 import type { SkillPromptInjection } from '../skills/types'
 
@@ -19,13 +19,15 @@ export async function assessSeverity(
 ): Promise<SeverityAssessment> {
   log.info(`Starting assessment — language: ${language}, description: "${description.slice(0, 80)}"`)
 
+  const { severitySchema } = getSchemas(language)
+
   const skillBlock = formatSkillForSystemPrompt(skills ?? [])
   const object = await generateStructured<SeverityAssessment>({
     model: reasoningModel,
     schema: severitySchema,
     tools,
-    system: SEVERITY_SYSTEM_PROMPT[language] + skillBlock,
-    prompt: severityUserPrompt(language, scene, description),
+    system: SEVERITY_SYSTEM_PROMPT[language] + LANGUAGE_ENFORCEMENT[language] + skillBlock,
+    prompt: LANGUAGE_PREFIX[language] + severityUserPrompt(language, scene, description),
   })
 
   log.info(`Assessment complete — level=${object.level}, confidence=${object.confidence}`)

@@ -1,7 +1,7 @@
 import { createLogger } from '../utils/logger'
 import { reasoningModel } from '../providers/index'
 import {
-  reportSchema,
+  getSchemas,
   type AccidentReport,
   type LiabilityAnalysis,
   type SceneDescription,
@@ -9,7 +9,7 @@ import {
 } from './schemas'
 import { generateStructured } from './helpers'
 import { formatSkillForSystemPrompt } from '../skills/inject'
-import { REPORT_SYSTEM_PROMPT, reportUserPrompt } from '../i18n'
+import { REPORT_SYSTEM_PROMPT, reportUserPrompt, LANGUAGE_ENFORCEMENT, LANGUAGE_PREFIX } from '../i18n'
 import type { SupportedLanguage } from '../i18n'
 import type { SkillPromptInjection } from '../skills/types'
 
@@ -30,13 +30,15 @@ export async function generateReport(
   const inputCitedCount = input.liability.citedArticles?.length ?? 0
   log.info(`Starting report generation — language: ${language}, input citedArticles=${inputCitedCount}`)
 
+  const { reportSchema } = getSchemas(language)
+
   const skillBlock = formatSkillForSystemPrompt(skills ?? [])
   const object = await generateStructured<AccidentReport>({
     model: reasoningModel,
     schema: reportSchema,
     tools,
-    system: REPORT_SYSTEM_PROMPT[language] + skillBlock,
-    prompt: reportUserPrompt(language, input),
+    system: REPORT_SYSTEM_PROMPT[language] + LANGUAGE_ENFORCEMENT[language] + skillBlock,
+    prompt: LANGUAGE_PREFIX[language] + reportUserPrompt(language, input),
   })
 
   // Programmatic guard: if liability stage had no citedArticles, force-clear report's too

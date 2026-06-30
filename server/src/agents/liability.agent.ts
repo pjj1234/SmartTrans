@@ -2,7 +2,7 @@ import { createLogger } from '../utils/logger'
 import { reasoningModel } from '../providers/index'
 import { formatLegalContext, retrieveLegalContext } from '../rag/retriever'
 import {
-  liabilitySchema,
+  getSchemas,
   type LiabilityAnalysis,
   type SceneDescription,
   type SeverityAssessment,
@@ -13,6 +13,8 @@ import {
   LIABILITY_SYSTEM_WITH_ARTICLES,
   LIABILITY_SYSTEM_WITHOUT_ARTICLES,
   liabilityUserPrompt,
+  LANGUAGE_ENFORCEMENT,
+  LANGUAGE_PREFIX,
 } from '../i18n'
 import type { SupportedLanguage } from '../i18n'
 import type { SkillPromptInjection } from '../skills/types'
@@ -39,11 +41,13 @@ export async function analyzeLiability(
     log.debug('RAG retrieved articles', chunks.map((c) => `${c.source} ${c.articleNo ?? ''}`))
   }
 
+  const { liabilitySchema } = getSchemas(language)
+
   const legalContext = formatLegalContext(chunks)
   const skillBlock = formatSkillForSystemPrompt(skills ?? [])
   const system = hasArticles
-    ? LIABILITY_SYSTEM_WITH_ARTICLES[language] + skillBlock
-    : LIABILITY_SYSTEM_WITHOUT_ARTICLES[language] + skillBlock
+    ? LIABILITY_SYSTEM_WITH_ARTICLES[language] + LANGUAGE_ENFORCEMENT[language] + skillBlock
+    : LIABILITY_SYSTEM_WITHOUT_ARTICLES[language] + LANGUAGE_ENFORCEMENT[language] + skillBlock
 
   log.debug('system prompt', system.slice(0, 150))
 
@@ -52,7 +56,7 @@ export async function analyzeLiability(
     schema: liabilitySchema,
     tools,
     system,
-    prompt: liabilityUserPrompt(language, scene, severity, description, legalContext),
+    prompt: LANGUAGE_PREFIX[language] + liabilityUserPrompt(language, scene, severity, description, legalContext),
   })
 
   log.info(`Model returned citedArticles count: ${object.citedArticles?.length ?? 0}`, object.citedArticles)

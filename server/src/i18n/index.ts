@@ -204,3 +204,17 @@ export const PDF_LABELS: Record<
     severityLabels: { minor: '輕微', moderate: '一般', severe: '嚴重' },
   },
 }
+
+// ---- Language enforcement (appended to system prompts) ----
+export const LANGUAGE_ENFORCEMENT: Record<SupportedLanguage, string> = {
+  en: '\n\nCRITICAL LANGUAGE RULE: You MUST write ALL text field values in English. Do NOT mix languages. Every description, reasoning, summary, and conclusion MUST be written in English.',
+  'zh-CN': '\n\nCRITICAL LANGUAGE RULE: 所有文本字段必须使用简体中文。禁止混合语言。每条描述、推理、总结和结论都必须使用简体中文。',
+  'zh-TW': '\n\nCRITICAL LANGUAGE RULE: 所有文字欄位必須使用繁體中文。禁止混合語言。每條描述、推理、總結和結論都必須使用繁體中文。',
+}
+
+// ---- Language prefix (prepended to user prompts) ----
+export const LANGUAGE_PREFIX: Record<SupportedLanguage, string> = {
+  en: '[IMPORTANT: You MUST respond entirely in English. All text fields MUST be in English.]\n\n',
+  'zh-CN': '[重要：你必须使用简体中文回复。所有文本字段必须使用简体中文。]\n\n',
+  'zh-TW': '[重要：你必須使用繁體中文回覆。所有文字欄位必須使用繁體中文。]\n\n',
+}

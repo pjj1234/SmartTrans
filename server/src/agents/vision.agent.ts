@@ -1,9 +1,9 @@
 import { createLogger } from '../utils/logger'
 import { visionModel } from '../providers/index'
-import { sceneSchema, type SceneDescription } from './schemas'
+import { getSchemas, type SceneDescription } from './schemas'
 import { generateStructured } from './helpers'
 import { formatSkillForSystemPrompt } from '../skills/inject'
-import { VISION_SYSTEM_PROMPT, visionUserPrompt } from '../i18n'
+import { VISION_SYSTEM_PROMPT, visionUserPrompt, LANGUAGE_ENFORCEMENT, LANGUAGE_PREFIX } from '../i18n'
 import type { SupportedLanguage } from '../i18n'
 import type { SkillPromptInjection } from '../skills/types'
 
@@ -21,10 +21,12 @@ export async function recognizeScene(
 ): Promise<SceneDescription> {
   log.info(`Starting recognition — images ${images.length}, language: ${language}, description: "${description.slice(0, 80)}"`)
 
+  const { sceneSchema } = getSchemas(language)
+
   const content: ContentPart[] = [
     {
       type: 'text',
-      text: visionUserPrompt(language, description),
+      text: LANGUAGE_PREFIX[language] + visionUserPrompt(language, description),
     },
     ...images.map((image): ContentPart => ({ type: 'image', image })),
   ]
@@ -34,7 +36,7 @@ export async function recognizeScene(
     model: visionModel,
     schema: sceneSchema,
     tools,
-    system: VISION_SYSTEM_PROMPT[language] + skillBlock,
+    system: VISION_SYSTEM_PROMPT[language] + LANGUAGE_ENFORCEMENT[language] + skillBlock,
     messages: [{ role: 'user', content }],
   })
 
