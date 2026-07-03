@@ -37,17 +37,28 @@ Express (server/src/index.ts)
   ├─ GET/POST /api/reports/*   ← CRUD on analyzed reports (SQLite)
   ├─ GET/POST /api/knowledge/* ← RAG knowledge base search, upload, & stats
   ├─ GET|POST|DELETE /api/mcp/* ← MCP connection management & agent tool binding
+  ├─ GET|POST|DELETE /api/skills/* ← Skills CRUD, agent-skill bindings, provider caps
   ├─ GET /api/health
   └─ Static: /uploads/* (uploaded images), web/dist/* (prod SPA fallback)
 
-Vue 3 SPA (web/src/)
+Vue 3 SPA (web/src/) — Element Plus component library + vue-i18n
   ├─ AnalyzeView   ← upload images + text, watch SSE progress, see final report
   ├─ HistoryView   ← browse past reports with detail dialog
   ├─ KnowledgeView ← search legal knowledge base, upload/delete documents
-  └─ McpSettingsView ← manage MCP connections + per-agent tool enablement (lazy-loaded)
+  ├─ McpSettingsView ← manage MCP connections + per-agent tool enablement (lazy-loaded)
+  └─ SkillsView    ← manage Skills + per-agent enablement (lazy-loaded)
 ```
 
 During dev, Vite proxies `/api` and `/uploads` to `http://localhost:28123` (matching the server's default `PORT`). In production, Express serves `web/dist` directly.
+
+## i18n System
+
+The entire system supports three languages: **en**, **zh-CN**, **zh-TW**. The frontend sets a `language` field in the `/api/analyze` multipart request, which flows through every agent and into PDF generation.
+
+- **Frontend** (`web/src/i18n/`): `vue-i18n` with `createI18n` (legacy: false). Locale persists to `localStorage` key `smarttrans-language`. A `LanguageSwitcher.vue` component lets users switch. Element Plus locale is synced via `element-locales.ts`.
+- **Server** (`server/src/i18n/index.ts`): All agent system prompts, user prompts, step labels, and PDF labels are stored in `Record<SupportedLanguage, string>` maps. Two universal helpers are appended/prepended to every agent call:
+  - `LANGUAGE_ENFORCEMENT` (appended to system prompt) — a critical rule requiring all text fields in the target language
+  - `LANGUAGE_PREFIX` (prepended to user prompt) — a language reminder at the top of each user message
 
 ## Multi-Agent Pipeline (server/src/agents/orchestrator.ts)
 
@@ -57,6 +68,10 @@ The pipeline runs sequentially via an async generator that yields `StageEvent`s 
 2. **Severity Agent** (`DeepSeek-V4-Flash`) → minor/moderate/severe + injury/property assessment
 3. **Liability Agent** (`DeepSeek-V4-Flash` + RAG) → fault percentages per party + cited legal articles
 4. **Report Agent** (`DeepSeek-V4-Flash`) → structured accident report with recommendations
+
+Each agent receives: (a) **MCP tools** pre-fetched by `mcpManager.getToolsForAgent(agentName)` — one call per agent before the pipeline runs, (b) **Skills** injected via `skillsManager.getSkillsForAgent(agentName, skillSelections)` — merged from persisted agent-skill bindings and per-request user selections, and (c) **language-specific prompts** from `server/src/i18n/index.ts` (system + user prompts in the target language, plus `LANGUAGE_ENFORCEMENT`/`LANGUAGE_PREFIX`).
+
+Each agent is implemented as a separate file (`vision.agent.ts`, `severity.agent.ts`, `liability.agent.ts`, `report.agent.ts`), all calling the shared `generateStructured()` helper.
 
 All agent outputs are validated against Zod schemas (`schemas.ts`). On completion, the report is persisted to SQLite via `insertReport()` and a PDF is generated (best-effort, failure is non-fatal).
 
@@ -100,7 +115,38 @@ Preset MCP connections are seeded on startup by `McpManager.seedPresets()`, cann
 
 **PDF报告生成器** (`system-pdf-generator`): Exposes `generate_report_pdf` — takes `reportJson` string, generates a styled PDF via pdfkit, stores to `server/data/pdfs/`. Has a local fallback executor: if the stdio MCP client fails to connect, the manager runs `generatePdf()` directly without going through the MCP transport.
 
-### PDF Report Generation (server/src/pdf/generator.ts)
+## Skills System (server/src/skills/)
+
+Skills are domain-knowledge packs that can be injected into agent system prompts. Each Skill is a directory under `server/data/skills/` containing a `SKILL.md` file with YAML frontmatter (`name`, `description`) and markdown body (`instructions`), plus optional bundled files.
+
+- **Parser** (`parser.ts`): Reads `SKILL.md` from disk, extracts frontmatter with a hand-rolled YAML parser (supports `key: value` and `key: |` multi-line), reads any bundled files alongside `SKILL.md`
+- **Manager** (`manager.ts`): Singleton `SkillsManager` — maintains an in-memory cache of parsed skills, seeds preset system skills on startup, provides `getSkillsForAgent(agentName, selections?)` which merges persisted agent-skill bindings with per-request user selections
+- **Store** (`store.ts`): Persists skills to the `skills` table and agent bindings to `agent_skill_settings` table
+- **Inject** (`inject.ts`): `formatSkillForSystemPrompt()` wraps skill content in `[Skill: name]...[/Skill: name]` boundary markers and appends to the agent's system prompt
+- **Routes** (`routes/skills.routes.ts`): `GET/POST/DELETE /api/skills/:id`, `PUT /api/skills/:id/enabled`, `GET/PUT /api/skills/bindings/agent-settings`, `POST /api/skills/upload-bundle`, `GET /api/skills/meta/provider-capabilities`
+
+### Preset System Skill
+
+One preset skill is seeded on startup by `SkillsManager.seedPresets()`:
+
+**liability-enhancer** (`system-liability-enhancer`): Provides detailed liability determination guidance — fault assessment criteria, common accident-type responsibility splits (rear-end, lane-change, intersection, pedestrian, etc.), multi-vehicle chain analysis method, and special circumstances (force majeure, emergency避险, 好意同乘). Default-bound to the `liability` agent.
+
+System skills are marked `is_system = 1` and cannot be deleted via the API.
+
+### Skill Prompt Injection Format
+
+Skills are appended to the agent's system prompt with clear boundary markers:
+
+```
+--- BEGIN SKILLS ---
+[Skill: liability-enhancer]
+Description: ...
+Instructions: ...
+[/Skill: liability-enhancer]
+--- END SKILLS ---
+```
+
+## PDF Report Generation (server/src/pdf/generator.ts)
 
 After the multi-agent pipeline completes and the report is persisted, the orchestrator generates a PDF automatically (best-effort, failure is non-fatal). PDFs are stored at `server/data/pdfs/report-<uuid>.pdf` with a `pdf_path` column in the `reports` table tracking the file.
 
@@ -120,9 +166,11 @@ SQLite via `better-sqlite3` with WAL mode + `sqlite-vec` extension. File: `serve
 | `kb_chunks` | Text chunks with article number references |
 | `vec_kb_chunks` | Virtual table (vec0) — float[4096] embeddings for vector search |
 | `mcp_connections` | MCP server connection configs and status (includes `is_system` flag) |
-| `agent_mcp_settings` | Per-agent enable/disable flags for each MCP connection |
+| `agent_mcp_settings` | Per-agent MCP tool enable/disable flags for each MCP connection |
+| `skills` | Skill metadata (name, description, source_path, is_system, enabled, provider_ref, upload_status) |
+| `agent_skill_settings` | Per-agent skill enable/disable bindings (UNIQUE on agent_name + skill_id) |
 
-Timestamps use Beijing time (`Asia/Shanghai`, `datetime('now', '+8 hours')`).
+The DB layer (`server/src/db/index.ts`) uses safe migrations: on startup it checks `PRAGMA table_info()` for missing columns (`pdf_path`, `is_system`, `enabled`) and adds them if absent. All data directories (`uploads/`, `knowledge/`, `pdfs/`, `fonts/`, `skills/`) are created on first launch.
 
 ## AI Model Configuration (server/src/config.ts + providers/index.ts)
 

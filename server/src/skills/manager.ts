@@ -27,71 +27,80 @@ interface CacheEntry {
 class SkillsManager {
   private cache = new Map<string, CacheEntry>()
 
-  /** 启动时从 DB 加载所有 skills 并解析 SKILL.md */
+  /** Initialize: load all skills from DB and parse SKILL.md */
   async initialize(): Promise<void> {
-    // 1. 先播种预置的系统 skills
+    // 1. Seed preset system skills first
     this.seedPresets()
-    // 2. 加载所有 skills
+    // 2. Load all skills
     const skills = listSkills()
-    log.info(`加载 ${skills.length} 个 skills`)
+    log.info(`Loading ${skills.length} skills`)
     for (const meta of skills) {
       const skillDir = path.join(config.paths.skills, meta.name)
       const parsed = parseSkillMd(skillDir)
       if (parsed) {
         this.cache.set(meta.id, { meta, parsed })
       } else {
-        log.warn(`Skill "${meta.name}" 解析失败，跳过`)
+        log.warn(`Skill "${meta.name}" parse failed, skipping`)
       }
     }
   }
 
-  /** 播种预置的系统 skills（同名已存在则跳过） */
+  /** Seed preset system skills (skip if name already exists) */
   private seedPresets(): void {
-    const PRESET_ID = 'system-liability-enhancer'
-    const PRESET_NAME = 'liability-enhancer'
+    const presets: { id: string; name: string; defaultAgent: string }[] = [
+      { id: 'system-liability-enhancer', name: 'liability-enhancer', defaultAgent: 'liability' },
+      { id: 'system-vision-enhancer', name: 'vision-enhancer', defaultAgent: 'vision' },
+      { id: 'system-severity-enhancer', name: 'severity-enhancer', defaultAgent: 'severity' },
+      { id: 'system-report-enhancer', name: 'report-enhancer', defaultAgent: 'report' },
+    ]
 
-    // 检查是否已存在
-    const existing = getSkillByName(PRESET_NAME)
-    if (existing) {
-      log.info(`预置 Skill 已存在 — ${PRESET_NAME}`)
-      return
+    for (const preset of presets) {
+      const existing = getSkillByName(preset.name)
+      if (existing) {
+        log.info(`Preset skill already exists: ${preset.name}`)
+        // Ensure existing skill is bound to its default agent (compat migration)
+        const existingSettings = getAgentSkillSettings(preset.defaultAgent)
+        if (!existingSettings.some((s) => s.skillId === existing.id)) {
+          setAgentSkillSetting(preset.defaultAgent, existing.id, true)
+          log.info(`Backfill binding: ${preset.name} -> ${preset.defaultAgent}`)
+        }
+        continue
+      }
+
+      const skillDir = path.join(config.paths.skills, preset.name)
+      const parsed = parseSkillMd(skillDir)
+      if (!parsed) {
+        log.warn(`Preset skill parse failed: ${skillDir}`)
+        continue
+      }
+
+      const meta: SkillMeta = {
+        id: preset.id,
+        name: parsed.name,
+        description: parsed.description,
+        sourcePath: `skills/${preset.name}/SKILL.md`,
+        filesJson: [],
+        providerRef: null,
+        uploadStatus: 'local',
+        isSystem: true,
+        enabled: true,
+        createdAt: new Date().toISOString(),
+      }
+      insertSkill(meta)
+      this.cache.set(preset.id, { meta, parsed })
+
+      setAgentSkillSetting(preset.defaultAgent, preset.id, true)
+
+      log.info(`Preset skill seeded: ${preset.name} (${preset.id}), default-bound to ${preset.defaultAgent}`)
     }
-
-    // 从磁盘读取预置 SKILL.md
-    const skillDir = path.join(config.paths.skills, PRESET_NAME)
-    const parsed = parseSkillMd(skillDir)
-    if (!parsed) {
-      log.warn(`预置 Skill 解析失败 — ${skillDir}`)
-      return
-    }
-
-    const meta: SkillMeta = {
-      id: PRESET_ID,
-      name: parsed.name,
-      description: parsed.description,
-      sourcePath: `skills/${PRESET_NAME}/SKILL.md`,
-      filesJson: [],
-      providerRef: null,
-      uploadStatus: 'local',
-      isSystem: true,
-      enabled: true,
-      createdAt: new Date().toISOString(),
-    }
-    insertSkill(meta)
-    this.cache.set(PRESET_ID, { meta, parsed })
-
-    // 默认启用给 liability agent
-    setAgentSkillSetting('liability', PRESET_ID, true)
-
-    log.info(`预置 Skill 已播种 — ${PRESET_NAME} (${PRESET_ID})，默认绑定 liability agent`)
   }
 
-  /** 创建新 skill：写入 SKILL.md 到磁盘 + 插入 DB + 加入缓存 */
+  /** Create new skill: write SKILL.md to disk + insert DB + add to cache */
   createSkill(
     skillMdContent: string,
     files?: { path: string; content: string }[],
   ): SkillMeta {
-    // 1. 先写入磁盘临时目录，解析出 name
+    // 1. Write to temp dir, parse name
     const tmpDir = path.join(config.paths.skills, '.tmp-' + crypto.randomUUID())
     fs.mkdirSync(tmpDir, { recursive: true })
     fs.writeFileSync(path.join(tmpDir, 'SKILL.md'), skillMdContent, 'utf-8')
@@ -106,30 +115,30 @@ class SkillsManager {
     const parsed = parseSkillMd(tmpDir)
     if (!parsed) {
       fs.rmSync(tmpDir, { recursive: true, force: true })
-      throw new Error('SKILL.md 解析失败：缺少 name 字段或格式不正确')
+      throw new Error('SKILL.md parse failed: missing name field or invalid format')
     }
 
-    // 2. 检查重名
+    // 2. Check duplicate name
     const existing = listSkills().find((s) => s.name === parsed.name)
     if (existing) {
       fs.rmSync(tmpDir, { recursive: true, force: true })
-      throw new Error(`Skill "${parsed.name}" 已存在`)
+      throw new Error(`Skill "${parsed.name}" already exists`)
     }
 
-    // 3. 移动到正式目录
+    // 3. Move to final directory
     const skillDir = path.join(config.paths.skills, parsed.name)
     if (fs.existsSync(skillDir)) {
       fs.rmSync(skillDir, { recursive: true, force: true })
     }
     fs.renameSync(tmpDir, skillDir)
 
-    // 4. 记录文件列表
+    // 4. Record file list
     const fileNames: string[] = []
     if (files) {
       fileNames.push(...files.map((f) => f.path))
     }
 
-    // 5. 持久化
+    // 5. Persist
     const id = crypto.randomUUID()
     const meta: SkillMeta = {
       id,
@@ -145,16 +154,16 @@ class SkillsManager {
     }
     insertSkill(meta)
 
-    // 6. 加入缓存
+    // 6. Add to cache
     this.cache.set(id, { meta, parsed })
-    log.info(`Skill 已创建 — ${parsed.name} (${id})`)
+    log.info(`Skill created: ${parsed.name} (${id})`)
     return meta
   }
 
-  /** 删除 skill */
+  /** Delete skill */
   removeSkill(id: string): void {
     const entry = this.cache.get(id)
-    if (!entry) throw new Error(`Skill 不存在: ${id}`)
+    if (!entry) throw new Error(`Skill not found: ${id}`)
 
     const skillDir = path.join(config.paths.skills, entry.meta.name)
     if (fs.existsSync(skillDir)) {
@@ -162,30 +171,30 @@ class SkillsManager {
     }
     deleteSkill(id)
     this.cache.delete(id)
-    log.info(`Skill 已删除 — ${entry.meta.name} (${id})`)
+    log.info(`Skill deleted: ${entry.meta.name} (${id})`)
   }
 
-  /** 获取单个 skill 完整内容（含解析后的 instructions） */
+  /** Get single skill with full parsed content */
   getSkillContent(id: string): { meta: SkillMeta; parsed: ParsedSkill } | undefined {
     const entry = this.cache.get(id)
     if (!entry) return undefined
     return { meta: entry.meta, parsed: entry.parsed }
   }
 
-  /** 列出所有 skills（仅 metadata） */
+  /** List all skills (metadata only) */
   listAllSkills(): SkillMeta[] {
     return Array.from(this.cache.values()).map((e) => e.meta)
   }
 
-  /** 获取某 agent 启用的所有 skills 的 prompt 注入内容 */
+  /** Get enabled skills for an agent, merged with per-request selections */
   getSkillsForAgent(
     agentName: string,
     selections?: { skillId: string; agentNames: string[] }[],
   ): SkillPromptInjection[] {
-    // 1. 持久化设置中为该 agent 启用的 skill IDs
+    // 1. Persistently enabled skill IDs for this agent
     const enabledIds = new Set(getEnabledSkillIdsForAgent(agentName))
 
-    // 2. 合并此次分析的选择
+    // 2. Merge per-request selections
     if (selections) {
       for (const sel of selections) {
         if (sel.agentNames.includes(agentName)) {
@@ -194,7 +203,7 @@ class SkillsManager {
       }
     }
 
-    // 3. 从缓存取出已解析的 skill 内容
+    // 3. Fetch parsed skill content from cache
     const injections: SkillPromptInjection[] = []
     for (const skillId of enabledIds) {
       const entry = this.cache.get(skillId)
@@ -209,17 +218,17 @@ class SkillsManager {
     return injections
   }
 
-  /** 设置 agent-skill 绑定 */
+  /** Set agent-skill binding */
   setAgentSetting(agentName: string, skillId: string, enabled: boolean): void {
     setAgentSkillSetting(agentName, skillId, enabled)
   }
 
-  /** 获取 agent-skill 绑定 */
+  /** Get agent-skill bindings */
   getAgentSettings(agentName?: string) {
     return getAgentSkillSettings(agentName)
   }
 
-  /** 重新解析磁盘上的 skill 文件（用于文件更新后刷新缓存） */
+  /** Reload skill from disk (refresh cache after file update) */
   reloadSkill(id: string): boolean {
     const entry = this.cache.get(id)
     if (!entry) return false
@@ -228,21 +237,21 @@ class SkillsManager {
     const parsed = parseSkillMd(skillDir)
     if (!parsed) return false
 
-    // 更新 description（可能已变更）
+    // Update description (may have changed)
     const updatedMeta = { ...entry.meta, description: parsed.description }
     this.cache.set(id, { meta: updatedMeta, parsed })
     return true
   }
 
-  /** 尝试 native uploadSkill（v1 预留，当前 provider 不支持） */
+  /** Provider capabilities (v1 placeholder, native upload not supported yet) */
   getProviderCapabilities(): { supportsNativeSkills: boolean } {
     return { supportsNativeSkills: false }
   }
 
-  /** 关闭（预留接口） */
+  /** Shutdown (reserved) */
   async shutdown(): Promise<void> {
     this.cache.clear()
-    log.info('SkillsManager 已关闭')
+    log.info('SkillsManager shut down')
   }
 }
 
