@@ -165,6 +165,16 @@ export function getSchemas(language: SupportedLanguage) {
         '引用法条',
         '引用法條'),
     ),
+    location: z.string().optional().describe(
+      L('Accident location address, resolved from coordinates via geocoding',
+        '事故发生地点地址，通过逆地理编码从坐标解析得到',
+        '事故發生地點地址，通過逆地理編碼從坐標解析得到'),
+    ),
+    generatedAt: z.string().optional().describe(
+      L('Report generation timestamp (ISO format), taken from the input',
+        '报告生成时间（ISO格式），取自输入中的时间戳',
+        '報告生成時間（ISO格式），取自輸入中的時間戳'),
+    ),
     recommendations: z.array(z.string()).describe(
       L('Recommendations / suggested actions',
         '处理建议',

@@ -1,30 +1,131 @@
-import path from 'node:path'
 import { createLogger } from '../utils/logger'
-import { config } from '../config'
 import { insertReport, updateReportPdfPath } from '../db/reports.repo'
 import { analyzeLiability } from './liability.agent'
 import { generateReport } from './report.agent'
-import { generatePdf } from '../pdf/generator'
 import { assessSeverity } from './severity.agent'
 import { recognizeScene } from './vision.agent'
 import { mcpManager } from '../mcp/manager'
 import { skillsManager } from '../skills/manager'
 import { STEP_LABELS } from '../i18n'
 import type { SupportedLanguage } from '../i18n'
-import type { AccidentReport } from './schemas'
 
 const log = createLogger('orchestrator')
 
 export type StageName = 'vision' | 'severity' | 'liability' | 'report'
 
 export type StageEvent =
-  | { type: 'stage_start'; stage: StageName; label: string; skillNames: string[] }
-  | { type: 'stage_complete'; stage: StageName; label: string; data: unknown; skillNames: string[] }
+  | { type: 'stage_start'; stage: StageName; label: string; skillNames: string[]; toolNames: string[] }
+  | { type: 'stage_complete'; stage: StageName; label: string; data: unknown; skillNames: string[]; toolNames: string[] }
   | { type: 'done'; reportId: string; report: unknown }
   | { type: 'error'; message: string }
 
 function skillNames(skills: { skillName: string }[]): string[] {
   return skills.map((s) => s.skillName)
+}
+
+/** 归一化 MCP tool 返回值：stdio transport 返回 MCP content wrapper，本地兜底返回裸对象 */
+function normalizePdfResult(raw: unknown): { success?: boolean; pdfPath?: string; filename?: string } | null {
+  if (!raw || typeof raw !== 'object') return null
+  // 本地兜底路径：直接返回裸对象
+  if ('pdfPath' in raw) return raw as Record<string, unknown> as any
+  // stdio MCP 路径：解析 content wrapper { content: [{ type: 'text', text: '...' }] }
+  const content = (raw as Record<string, unknown>).content
+  if (Array.isArray(content)) {
+    const textItem = content.find((c: any) => c.type === 'text')
+    if (textItem?.text) {
+      try { return JSON.parse(textItem.text) } catch { return null }
+    }
+  }
+  return null
+}
+
+/** 从 addressComponent 或顶层字段拼接出人类可读的地址 */
+function buildAddressFromComponents(obj: Record<string, unknown>): string | null {
+  const comp = (obj.addressComponent as Record<string, unknown>) ?? obj
+  const parts: string[] = []
+  const fields = ['country', 'province', 'city', 'district', 'township', 'streetNumber', 'towncode']
+  for (const key of fields) {
+    const v = comp[key]
+    if (typeof v === 'string' && v.trim()) {
+      // 去重：如果前一个部分已包含当前值，跳过（如 city 已含 district）
+      const cleaned = v.trim()
+      if (parts.length > 0 && parts[parts.length - 1].includes(cleaned)) continue
+      parts.push(cleaned)
+    }
+  }
+  return parts.length > 0 ? parts.join('') : null
+}
+
+/** 从 MCP tool 返回值中提取文本内容（处理多种 MCP transport 格式） */
+function extractTextFromToolResult(raw: unknown): string | null {
+  if (!raw || typeof raw !== 'object') return null
+  // 本地/HTTP 直接返回：{ regeocode: { formatted_address: "..." } } 或纯字符串
+  if (typeof (raw as any).regeocode?.formatted_address === 'string') {
+    return (raw as any).regeocode.formatted_address
+  }
+  if (typeof (raw as any).formatted_address === 'string') {
+    return (raw as any).formatted_address
+  }
+  // 顶层 addressComponent 或顶层 country/province/city 等字段
+  const topAddr = buildAddressFromComponents(raw as Record<string, unknown>)
+  if (topAddr) return topAddr
+  // MCP content wrapper: { content: [{ type: 'text', text: '...' }] }
+  const content = (raw as Record<string, unknown>).content
+  if (Array.isArray(content)) {
+    const textItem = content.find((c: any) => c.type === 'text')
+    if (textItem?.text) {
+      try {
+        const parsed = JSON.parse(textItem.text)
+        // 高德 API 返回格式: { status: "1", regeocode: { formatted_address: "..." } }
+        if (typeof parsed?.regeocode?.formatted_address === 'string') {
+          return parsed.regeocode.formatted_address
+        }
+        if (typeof parsed?.formatted_address === 'string') {
+          return parsed.formatted_address
+        }
+        // addressComponent 或顶层字段
+        const compAddr = buildAddressFromComponents(parsed)
+        if (compAddr) return compAddr
+        return textItem.text
+      } catch {
+        return textItem.text.slice(0, 200)
+      }
+    }
+  }
+  return null
+}
+
+/** 校验经纬度字符串格式（简单的 lng,lat 格式校验） */
+const COORD_REGEX = /^\s*(\d+\.?\d*)\s*,\s*(\d+\.?\d*)\s*$/
+
+function validateCoords(raw: string): string | null {
+  const m = raw.match(COORD_REGEX)
+  if (!m) return null
+  const lng = parseFloat(m[1])
+  const lat = parseFloat(m[2])
+  // 中国范围粗略校验
+  if (lng < 73 || lng > 135 || lat < 18 || lat > 54) return null
+  return `${lng},${lat}`
+}
+
+/** 将 ISO 时间戳格式化为人类可读的北京时间字符串 */
+function formatTimestamp(isoString: string, language: SupportedLanguage): string {
+  const date = new Date(isoString)
+  // 转为北京时间 (UTC+8)
+  const bj = new Date(date.getTime() + 8 * 60 * 60 * 1000)
+  const Y = bj.getUTCFullYear()
+  const M = String(bj.getUTCMonth() + 1).padStart(2, '0')
+  const D = String(bj.getUTCDate()).padStart(2, '0')
+  const h = String(bj.getUTCHours()).padStart(2, '0')
+  const mi = String(bj.getUTCMinutes()).padStart(2, '0')
+  const s = String(bj.getUTCSeconds()).padStart(2, '0')
+
+  if (language === 'en') {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    return `${months[bj.getUTCMonth()]} ${D}, ${Y} ${h}:${mi}:${s}`
+  }
+  return `${Y}年${M}月${D}日 ${h}:${mi}:${s}`
 }
 
 export interface SkillSelection {
@@ -43,9 +144,11 @@ export async function* runPipeline(
   description: string,
   language: SupportedLanguage = 'en',
   skillSelections?: SkillSelection[],
+  coordinates?: string,
+  timestamp?: string,
 ): AsyncGenerator<StageEvent> {
   const labels = STEP_LABELS[language]
-  log.info(`Pipeline started — images ${images.length}, language: ${language}, description: "${description.slice(0, 80)}"`)
+  log.info(`Pipeline started — images ${images.length}, language: ${language}, description: "${description.slice(0, 80)}", coords: "${coordinates ?? ''}", time: "${timestamp ?? ''}"`)
 
   try {
     // Pre-fetch MCP tools for each agent (one query, avoid per-stage repeats)
@@ -53,7 +156,32 @@ export async function* runPipeline(
       vision: await mcpManager.getToolsForAgent('vision'),
       severity: await mcpManager.getToolsForAgent('severity'),
       liability: await mcpManager.getToolsForAgent('liability'),
-      report: await mcpManager.getToolsForAgent('report'),
+      report: await mcpManager.getToolsForAgent('report', ['generate_report_pdf']),
+    }
+
+    // ---- 程序化逆地理编码：使用前端传入的坐标直接调用 maps_regeocode ----
+    let locationAddress: string | undefined
+    const coordStr = coordinates ? validateCoords(coordinates) : null
+    if (coordStr) {
+      // 获取 maps_regeocode 工具（独立于 report 的 toolFilter）
+      const regeocodeTools = await mcpManager.getToolsForAgent('report', ['maps_regeocode'])
+      const regeocodeTool = regeocodeTools['maps_regeocode']
+      if (regeocodeTool) {
+        try {
+          const rawResult = await regeocodeTool.execute({ location: coordStr })
+          const address = extractTextFromToolResult(rawResult)
+          if (address) {
+            locationAddress = address
+            log.info(`逆地理编码成功 — ${coordStr} → ${address}`)
+          } else {
+            log.warn(`逆地理编码返回为空 — ${coordStr}, raw=${JSON.stringify(rawResult).slice(0, 200)}`)
+          }
+        } catch (e) {
+          log.warn(`逆地理编码失败 — ${coordStr}: ${e instanceof Error ? e.message : String(e)}`)
+        }
+      } else {
+        log.warn('未找到 maps_regeocode 工具，跳过逆地理编码')
+      }
     }
 
     // Pre-fetch enabled Skills for each agent (merge persisted settings + current selections)
@@ -65,49 +193,58 @@ export async function* runPipeline(
     }
 
     // ---- 1. Vision ----
-    yield { type: 'stage_start', stage: 'vision', label: labels.vision, skillNames: skillNames(agentSkills.vision) }
+    yield { type: 'stage_start', stage: 'vision', label: labels.vision, skillNames: skillNames(agentSkills.vision), toolNames: Object.keys(agentTools.vision) }
     log.info('Stage start: vision')
     const scene = await recognizeScene(images, description, language, agentTools.vision, agentSkills.vision)
-    yield { type: 'stage_complete', stage: 'vision', label: labels.vision, data: scene, skillNames: skillNames(agentSkills.vision) }
+    yield { type: 'stage_complete', stage: 'vision', label: labels.vision, data: scene, skillNames: skillNames(agentSkills.vision), toolNames: Object.keys(agentTools.vision) }
     log.info('Stage complete: vision', scene)
 
     // ---- 2. Severity ----
-    yield { type: 'stage_start', stage: 'severity', label: labels.severity, skillNames: skillNames(agentSkills.severity) }
+    yield { type: 'stage_start', stage: 'severity', label: labels.severity, skillNames: skillNames(agentSkills.severity), toolNames: Object.keys(agentTools.severity) }
     log.info('Stage start: severity')
     const severity = await assessSeverity(scene, description, language, agentTools.severity, agentSkills.severity)
-    yield { type: 'stage_complete', stage: 'severity', label: labels.severity, data: severity, skillNames: skillNames(agentSkills.severity) }
+    yield { type: 'stage_complete', stage: 'severity', label: labels.severity, data: severity, skillNames: skillNames(agentSkills.severity), toolNames: Object.keys(agentTools.severity) }
     log.info('Stage complete: severity', severity)
 
     // ---- 3. Liability (RAG) ----
-    yield { type: 'stage_start', stage: 'liability', label: labels.liability, skillNames: skillNames(agentSkills.liability) }
+    yield { type: 'stage_start', stage: 'liability', label: labels.liability, skillNames: skillNames(agentSkills.liability), toolNames: Object.keys(agentTools.liability) }
     log.info('Stage start: liability')
     const { analysis: liability } = await analyzeLiability(scene, severity, description, language, agentTools.liability, agentSkills.liability)
-    yield { type: 'stage_complete', stage: 'liability', label: labels.liability, data: liability, skillNames: skillNames(agentSkills.liability) }
+    yield { type: 'stage_complete', stage: 'liability', label: labels.liability, data: liability, skillNames: skillNames(agentSkills.liability), toolNames: Object.keys(agentTools.liability) }
     log.info(`Stage complete: liability — citedArticles=${liability.citedArticles?.length ?? 0}`, liability.citedArticles)
 
     // ---- 4. Report ----
-    yield { type: 'stage_start', stage: 'report', label: labels.report, skillNames: skillNames(agentSkills.report) }
+    yield { type: 'stage_start', stage: 'report', label: labels.report, skillNames: skillNames(agentSkills.report), toolNames: Object.keys(agentTools.report) }
     log.info('Stage start: report')
-    const report = await generateReport({ scene, severity, liability, description }, language, agentTools.report, agentSkills.report)
-    yield { type: 'stage_complete', stage: 'report', label: labels.report, data: report, skillNames: skillNames(agentSkills.report) }
+    const report = await generateReport(
+      { scene, severity, liability, description, locationAddress, timestamp },
+      language, agentTools.report, agentSkills.report,
+    )
+    // 程序化注入：不依赖模型填充，直接覆盖 location 和 generatedAt
+    if (locationAddress) report.location = locationAddress
+    report.generatedAt = formatTimestamp(timestamp || new Date().toISOString(), language)
+    yield { type: 'stage_complete', stage: 'report', label: labels.report, data: report, skillNames: skillNames(agentSkills.report), toolNames: Object.keys(agentTools.report) }
     log.info(`Stage complete: report — citedArticles=${report.citedArticles?.length ?? 0}`, report.citedArticles)
 
     // ---- Persist ----
     const reportId = insertReport({ description, imagePaths, scene, severity, liability, report })
     log.info(`Report persisted, id=${reportId}`)
 
-    // ---- PDF generation (only when report agent has PDF MCP tool bound) ----
-    const reportToolKeys = Object.keys(agentTools.report)
-    const hasPdfTool = reportToolKeys.some(
+    // ---- PDF generation (via MCP tool) ----
+    const pdfToolKey = Object.keys(agentTools.report).find(
       (k) => k === 'generate_report_pdf' || k.endsWith('__generate_report_pdf'),
     )
-    if (hasPdfTool) {
+    if (pdfToolKey) {
       try {
-        const pdfFilename = `report-${reportId}.pdf`
-        const pdfPath = path.join(config.paths.pdfs, pdfFilename)
-        await generatePdf(report as AccidentReport, pdfPath, language)
-        updateReportPdfPath(reportId, path.join('pdfs', pdfFilename))
-        log.info(`PDF generated — ${pdfFilename}`)
+        const pdfTool = agentTools.report[pdfToolKey]
+        const rawResult = await pdfTool.execute({ reportJson: JSON.stringify(report), language })
+        const result = normalizePdfResult(rawResult)
+        if (result?.success !== false && result?.pdfPath) {
+          updateReportPdfPath(reportId, result.pdfPath)
+          log.info(`PDF generated via MCP — ${result.filename ?? result.pdfPath}`)
+        } else {
+          log.warn(`PDF tool returned failure — ${JSON.stringify(rawResult)}`)
+        }
       } catch (err) {
         log.error('PDF generation failed (report is still usable)', err instanceof Error ? err.message : String(err))
       }

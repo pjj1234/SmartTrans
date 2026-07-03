@@ -31,7 +31,38 @@ export async function generateStructured<T>(opts: GenerateOptions): Promise<T> {
     log.info(`开始 — 带 ${Object.keys(tools!).length} 个工具: ${Object.keys(tools!).join(', ')}`)
   }
 
-  const result = await generateText({
+  try {
+    const result = await doGenerate({ model, schema, tools: hasTools ? tools : undefined, system, prompt, messages })
+    if (hasTools) {
+      const ms = ((Date.now() - start) / 1000).toFixed(1)
+      log.info(
+        `完成 — 总步骤=${(result as any).steps?.length ?? '?'}, toolCalls=${result.toolCalls?.length ?? 0}, 总耗时=${ms}s`,
+      )
+    }
+    return (result as any).output as T
+  } catch (err) {
+    // 带 tools 时模型可能无法生成结构化输出（如 VL 模型被无关 tools 干扰），降级重试
+    if (hasTools) {
+      const msg = err instanceof Error ? err.message : String(err)
+      log.warn(`带 ${Object.keys(tools!).length} 个工具生成失败，降级为无工具重试 — ${msg}`)
+      const result = await doGenerate({ model, schema, system, prompt, messages })
+      return (result as any).output as T
+    }
+    throw err
+  }
+}
+
+async function doGenerate(opts: {
+  model: any
+  schema: ZodSchema
+  tools?: Record<string, any>
+  system?: string
+  prompt?: string
+  messages?: any[]
+}): Promise<any> {
+  const { model, schema, tools, system, prompt, messages } = opts
+  const hasTools = tools && Object.keys(tools).length > 0
+  return generateText({
     model,
     tools: hasTools ? tools : undefined,
     output: Output.object({ schema }),
@@ -61,13 +92,4 @@ export async function generateStructured<T>(opts: GenerateOptions): Promise<T> {
         }
       : {}),
   })
-
-  const ms = ((Date.now() - start) / 1000).toFixed(1)
-  if (hasTools) {
-    log.info(
-      `完成 — 总步骤=${(result as any).steps?.length ?? '?'}, toolCalls=${result.toolCalls?.length ?? 0}, 总耗时=${ms}s`,
-    )
-  }
-
-  return (result as any).output as T
 }

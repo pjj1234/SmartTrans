@@ -16,6 +16,7 @@ export default {
     description: 'Text Description (Optional)',
     descriptionPlaceholder:
       'Describe the accident process, time, location, weather, parties involved, etc.',
+    coordinates: 'Coordinates (lng,lat)',
     startAnalysis: 'Start Analysis',
     newAnalysis: 'New Analysis',
     pipeline: 'Multi-Agent Analysis Pipeline',
@@ -109,6 +110,10 @@ export default {
     reconnectSuccess: 'Reconnected successfully',
     reconnectFailed: 'Reconnection failed',
     loadFailed: 'Failed to load MCP configuration',
+    applyToAll: 'Apply to All Agents',
+    appliedToAll: 'Applied to all agents',
+    applyFailed: 'Apply failed',
+    applyPartial: '{ok} applied, {fail} failed',
   },
   addMcp: {
     title: 'Add MCP Server',
@@ -212,6 +217,8 @@ export default {
   report: {
     title: 'Traffic Accident Analysis Report',
     severityLabel: 'Severity: ',
+    location: 'Location',
+    generatedAt: 'Generated At',
     summary: 'Accident Summary',
     sceneSituation: 'Scene Situation',
     liabilityDetermination: 'Liability Determination',

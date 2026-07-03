@@ -73,8 +73,18 @@ function toggle(key: string): void {
           >
             {{ sn }}
           </el-tag>
+          <el-tag
+            v-for="tn in step.toolNames"
+            :key="tn"
+            size="small"
+            type="primary"
+            effect="plain"
+            class="tool-tag"
+          >
+            {{ tn }}
+          </el-tag>
           <span
-            v-if="(!step.skillNames || step.skillNames.length === 0) && step.status !== 'wait'"
+            v-if="(!step.skillNames || step.skillNames.length === 0) && (!step.toolNames || step.toolNames.length === 0) && step.status !== 'wait'"
             class="no-skills-hint"
           >+0 {{ t('status.skills') }}</span>
           <el-icon v-if="step.data" class="toggle-icon" :class="{ rotated: expandedKey === step.key }">

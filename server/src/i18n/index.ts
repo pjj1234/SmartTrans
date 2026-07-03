@@ -104,9 +104,9 @@ export function liabilityUserPrompt(
 
 // ---- Report agent ----
 export const REPORT_SYSTEM_PROMPT: Record<SupportedLanguage, string> = {
-  en: 'You are a traffic accident report generation agent. Synthesize the scene analysis, severity assessment, and liability determination to produce an objective, well-structured accident analysis report with recommendations. citedArticles MUST be taken directly from the liability determination; DO NOT fabricate or supplement any statutes from memory.',
-  'zh-CN': '你是交通事故报告生成智能体。综合现场识别、严重程度与责任判定，生成客观、条理清晰的结构化事故分析报告，并给出处理建议。citedArticles 必须直接使用责任判定中给出的法条，严禁凭记忆编造或补充任何法条。',
-  'zh-TW': '你是交通事故報告生成智能體。綜合現場識別、嚴重程度與責任判定，生成客觀、條理清晰的結構化事故分析報告，並給出處理建議。citedArticles 必須直接使用責任判定中給出的法條，嚴禁憑記憶編造或補充任何法條。',
+  en: 'You are a traffic accident report generation agent. Synthesize the scene analysis, severity assessment, and liability determination to produce an objective, well-structured accident analysis report with recommendations. citedArticles MUST be taken directly from the liability determination; DO NOT fabricate or supplement any statutes from memory.\n\nCRITICAL — The user prompt may contain "Resolved Location Address" and "Report Generation Time". If these are present, you MUST copy them exactly into the "location" and "generatedAt" fields of your output. Do NOT skip them — these fields are mandatory when the input provides them.',
+  'zh-CN': '你是交通事故报告生成智能体。综合现场识别、严重程度与责任判定，生成客观、条理清晰的结构化事故分析报告，并给出处理建议。citedArticles 必须直接使用责任判定中给出的法条，严禁凭记忆编造或补充任何法条。\n\n关键——用户提示中可能包含"已解析的事故地址"和"报告生成时间"。如果提供了这些信息，你必须将其原样填入输出的 location 和 generatedAt 字段。不要跳过——当输入提供了这些信息时，这两个字段是必须填写的。',
+  'zh-TW': '你是交通事故報告生成智能體。綜合現場識別、嚴重程度與責任判定，生成客觀、條理清晰的結構化事故分析報告，並給出處理建議。citedArticles 必須直接使用責任判定中給出的法條，嚴禁憑記憶編造或補充任何法條。\n\n關鍵——使用者提示中可能包含"已解析的事故地址"和"報告生成時間"。如果提供了這些資訊，你必須將其原樣填入輸出的 location 和 generatedAt 欄位。不要跳過——當輸入提供了這些資訊時，這兩個欄位是必須填寫的。',
 }
 
 export function reportUserPrompt(
@@ -116,15 +116,37 @@ export function reportUserPrompt(
     severity: unknown
     liability: unknown
     description: string
+    locationAddress?: string
+    timestamp?: string
   },
 ): string {
+  const coordLabels: Record<SupportedLanguage, string> = {
+    en: '\n\nResolved Location Address: ',
+    'zh-CN': '\n\n已解析的事故地址：',
+    'zh-TW': '\n\n已解析的事故地址：',
+  }
+  const addressBlock = input.locationAddress
+    ? coordLabels[language] + input.locationAddress
+    : ''
+
+  const timeLabels: Record<SupportedLanguage, string> = {
+    en: '\n\nReport Generation Time: ',
+    'zh-CN': '\n\n报告生成时间：',
+    'zh-TW': '\n\n報告生成時間：',
+  }
+  const timeBlock = input.timestamp
+    ? timeLabels[language] + input.timestamp
+    : ''
+
   const templates: Record<SupportedLanguage, string> = {
-    en: `Supplementary description: {desc}\n\nScene Analysis:\n{scene}\n\nSeverity Assessment:\n{severity}\n\nLiability Determination:\n{liability}`,
-    'zh-CN': `补充描述：{desc}\n\n现场识别：\n{scene}\n\n严重程度：\n{severity}\n\n责任判定：\n{liability}`,
-    'zh-TW': `補充描述：{desc}\n\n現場識別：\n{scene}\n\n嚴重程度：\n{severity}\n\n責任判定：\n{liability}`,
+    en: `Supplementary description: {desc}{address}{time}\n\nScene Analysis:\n{scene}\n\nSeverity Assessment:\n{severity}\n\nLiability Determination:\n{liability}`,
+    'zh-CN': `补充描述：{desc}{address}{time}\n\n现场识别：\n{scene}\n\n严重程度：\n{severity}\n\n责任判定：\n{liability}`,
+    'zh-TW': `補充描述：{desc}{address}{time}\n\n現場識別：\n{scene}\n\n嚴重程度：\n{severity}\n\n責任判定：\n{liability}`,
   }
   return templates[language]
     .replace('{desc}', input.description || NONE_TEXT[language])
+    .replace('{address}', addressBlock)
+    .replace('{time}', timeBlock)
     .replace('{scene}', JSON.stringify(input.scene))
     .replace('{severity}', JSON.stringify(input.severity))
     .replace('{liability}', JSON.stringify(input.liability))
@@ -141,6 +163,7 @@ export const PDF_LABELS: Record<
     reportTitleLabel: string
     generatedAt: string
     severityLevel: string
+    location: string
     summary: string
     scene: string
     liabilityFinding: string
@@ -159,6 +182,7 @@ export const PDF_LABELS: Record<
     reportTitleLabel: 'Report Title',
     generatedAt: 'Generated',
     severityLevel: 'Severity',
+    location: 'Accident Location',
     summary: 'Accident Summary',
     scene: 'Scene Situation',
     liabilityFinding: 'Liability Determination',
@@ -177,6 +201,7 @@ export const PDF_LABELS: Record<
     reportTitleLabel: '报告标题',
     generatedAt: '生成时间',
     severityLevel: '严重等级',
+    location: '事发地点',
     summary: '事故概要',
     scene: '现场情况',
     liabilityFinding: '责任认定',
@@ -194,6 +219,7 @@ export const PDF_LABELS: Record<
     reportTitleLabel: '報告標題',
     generatedAt: '生成時間',
     severityLevel: '嚴重等級',
+    location: '事發地點',
     summary: '事故概要',
     scene: '現場情況',
     liabilityFinding: '責任認定',

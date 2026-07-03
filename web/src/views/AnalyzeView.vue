@@ -14,6 +14,7 @@ const mcpEnabled = inject<boolean>('mcpEnabled', false)
 const {
   fileList,
   description,
+  coordinates,
   running,
   errorMsg,
   finalReport,
@@ -61,7 +62,12 @@ function onConfigureAgent(agentKey: string) {
                 :placeholder="t('analyze.descriptionPlaceholder')"
               />
             </el-form-item>
-
+            <el-form-item :label="t('analyze.coordinates')">
+              <el-input
+                v-model="coordinates"
+                placeholder="lng,lat"
+              />
+            </el-form-item>
             <div class="actions">
               <el-button type="primary" :loading="running" @click="run">{{ t('analyze.startAnalysis') }}</el-button>
               <el-button v-if="finalReport" :icon="Refresh" @click="resetAll">{{ t('analyze.newAnalysis') }}</el-button>

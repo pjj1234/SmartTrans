@@ -13,6 +13,3 @@ server/data/uploads/*
 !server/data/uploads/.gitkeep
 server/data/pdfs/*
 
-# agent
-CLAUDE.md
-AGENT.md

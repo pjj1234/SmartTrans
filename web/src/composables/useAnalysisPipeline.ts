@@ -24,6 +24,7 @@ export function useAnalysisPipeline() {
 
   const fileList = ref<UploadUserFile[]>([])
   const description = ref('')
+  const coordinates = ref('113.96438168820801,22.540468865266785')
   const running = ref(false)
   const errorMsg = ref('')
   const finalReport = ref<AccidentReportView | null>(null)
@@ -46,6 +47,7 @@ export function useAnalysisPipeline() {
     resetSteps()
     fileList.value = []
     description.value = ''
+    coordinates.value = '113.96438168820801,22.540468865266785'
     expandedKey.value = null
   }
 
@@ -82,12 +84,13 @@ export function useAnalysisPipeline() {
     running.value = true
 
     try {
-      await analyze(files, description.value, locale.value as SupportedLanguage, (ev: StageEvent) => {
+      await analyze(files, description.value, locale.value as SupportedLanguage, coordinates.value, (ev: StageEvent) => {
         if (ev.type === 'stage_start') {
           const s = findStep(ev.stage)
           if (s) {
             s.status = 'process'
             s.skillNames = ev.skillNames ?? []
+            s.toolNames = ev.toolNames ?? []
           }
         } else if (ev.type === 'stage_complete') {
           expandedKey.value = ev.stage ?? null
@@ -96,6 +99,7 @@ export function useAnalysisPipeline() {
             s.status = 'finish'
             s.data = ev.data
             s.skillNames = ev.skillNames ?? []
+            s.toolNames = ev.toolNames ?? []
           }
         } else if (ev.type === 'done') {
           finalReport.value = ev.report as AccidentReportView
@@ -116,6 +120,7 @@ export function useAnalysisPipeline() {
     // state
     fileList,
     description,
+    coordinates,
     running,
     errorMsg,
     finalReport,

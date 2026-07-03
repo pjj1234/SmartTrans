@@ -41,7 +41,12 @@ class McpManager {
     const connections = listMcpConnections()
     log.info(`加载 ${connections.length} 个 MCP 连接配置`)
     for (const conn of connections) {
-      this.clients.set(conn.id, { config: conn, client: null, toolCache: null })
+      const entry: ClientEntry = { config: conn, client: null, toolCache: null }
+      // 系统连接：预先填充本地工具定义，确保 connect() 完成前 getToolsForAgent() 也能返回工具
+      if (conn.isSystem) {
+        entry.toolCache = this.getSystemToolDefs(conn.id)
+      }
+      this.clients.set(conn.id, entry)
       // 后台连接，不阻塞启动
       this.connect(conn.id).catch(() => {})
     }
@@ -121,8 +126,8 @@ class McpManager {
     }
   }
 
-  /** 核心方法：获取某智能体启用的所有 MCP 工具（聚合） */
-  async getToolsForAgent(agentName: string): Promise<Record<string, any>> {
+  /** 核心方法：获取某智能体启用的所有 MCP 工具（聚合）。toolFilter 为可选工具名 allowlist */
+  async getToolsForAgent(agentName: string, toolFilter?: string[]): Promise<Record<string, any>> {
     if (!config.mcp.enabled) return {}
     const enabledIds = getEnabledMcpIdsForAgent(agentName)
     if (enabledIds.length === 0) return {}
@@ -130,11 +135,15 @@ class McpManager {
     const allTools: Record<string, any> = {}
     for (const mcpId of enabledIds) {
       const entry = this.clients.get(mcpId)
-      if (!entry) continue
+      if (!entry) {
+        log.warn(`[getToolsForAgent] ${agentName} — entry not found for ${mcpId}`)
+        continue
+      }
 
       // 系统连接兜底：即使 stdio client 未连接，也用本地工具定义
       if (entry.config.isSystem && !entry.client && entry.toolCache) {
         for (const tool of entry.toolCache) {
+          if (toolFilter && !toolFilter.includes(tool.name)) continue
           allTools[tool.name] = {
             description: tool.description,
             inputSchema: jsonSchema(tool.inputSchema),
@@ -144,13 +153,22 @@ class McpManager {
         continue
       }
 
-      if (!entry.client) continue
+      if (!entry.client) {
+        log.warn(`[getToolsForAgent] ${agentName} — ${mcpId} (${entry.config.name}): client is null, skipping`)
+        continue
+      }
       try {
         const tools = await entry.client.tools()
+        let kept = 0
         for (const [toolName, toolDef] of Object.entries(tools)) {
+          if (toolFilter && !toolFilter.includes(toolName)) continue
           // 工具名冲突时加 MCP 名称前缀
           const key = allTools[toolName] ? `${entry.config.name}__${toolName}` : toolName
           allTools[key] = toolDef
+          kept++
+        }
+        if (toolFilter) {
+          log.info(`[getToolsForAgent] ${agentName} — ${entry.config.name}: ${kept}/${Object.keys(tools).length} tools kept (filter: [${toolFilter.join(', ')}])`)
         }
       } catch (e) {
         log.warn(`获取 MCP ${mcpId} 工具失败: ${e}`)
@@ -166,9 +184,10 @@ class McpManager {
         const reportJson = args.reportJson as string
         if (!reportJson) throw new Error('Missing required argument: reportJson')
         const report = JSON.parse(reportJson)
+        const language = (args.language as string) ?? 'en'
         const pdfFilename = `report-${crypto.randomUUID()}.pdf`
         const pdfPath = path.join(config.paths.pdfs, pdfFilename)
-        await generatePdf(report, pdfPath)
+        await generatePdf(report, pdfPath, language as any)
         return { pdfPath: `pdfs/${pdfFilename}`, filename: pdfFilename, success: true }
       }
     }
@@ -236,6 +255,10 @@ class McpManager {
                 type: 'string',
                 description:
                   '事故报告 JSON 字符串，需符合 AccidentReport 结构（title, summary, sceneSummary, severityLevel, liabilityConclusion, citedArticles, recommendations）',
+              },
+              language: {
+                type: 'string',
+                description: 'PDF 标签语言：en / zh-CN / zh-TW，默认 en',
               },
             },
             required: ['reportJson'],

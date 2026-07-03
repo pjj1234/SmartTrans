@@ -22,13 +22,15 @@ export async function generateReport(
     severity: SeverityAssessment
     liability: LiabilityAnalysis
     description: string
+    locationAddress?: string
+    timestamp?: string
   },
   language: SupportedLanguage = 'en',
   tools?: Record<string, any>,
   skills?: SkillPromptInjection[],
 ): Promise<AccidentReport> {
   const inputCitedCount = input.liability.citedArticles?.length ?? 0
-  log.info(`Starting report generation — language: ${language}, input citedArticles=${inputCitedCount}`)
+  log.info(`Starting report generation — language: ${language}, input citedArticles=${inputCitedCount}, hasAddress=${!!input.locationAddress}`)
 
   const { reportSchema } = getSchemas(language)
 
