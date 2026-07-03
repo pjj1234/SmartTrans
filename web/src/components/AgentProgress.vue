@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { inject } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Loading, Setting } from '@element-plus/icons-vue'
 import type { Component } from 'vue'
@@ -20,7 +19,6 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const mcpEnabled = inject<boolean>('mcpEnabled', false)
 
 const tagType = (s: string): 'success' | 'warning' | 'danger' | 'info' =>
   s === 'finish' ? 'success' : s === 'process' ? 'warning' : s === 'error' ? 'danger' : 'info'
@@ -85,6 +83,10 @@ function toggle(key: string): void {
           >
             {{ tn }}
           </el-tag>
+          <span
+            v-if="(!step.skillNames || step.skillNames.length === 0) && (!step.toolNames || step.toolNames.length === 0) && step.status !== 'wait'"
+            class="no-skills-hint"
+          >+0 {{ t('status.skills') }}</span>
           <el-icon v-if="step.data" class="toggle-icon" :class="{ rotated: expandedKey === step.key }">
             <svg viewBox="0 0 1024 1024" width="14" height="14">
               <path
@@ -94,7 +96,6 @@ function toggle(key: string): void {
             </svg>
           </el-icon>
           <el-icon
-            v-if="mcpEnabled"
             class="gear-icon"
             :title="t('configMCP')"
             @click.stop="emit('configureAgent', step.key)"
@@ -175,6 +176,11 @@ function toggle(key: string): void {
 }
 .step-body {
   padding: 0;
+}
+.no-skills-hint {
+  font-size: 11px;
+  color: var(--el-text-color-placeholder);
+  font-style: italic;
 }
 /* fallback raw JSON style */
 .step-data {

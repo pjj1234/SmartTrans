@@ -82,6 +82,7 @@ export function useAnalysisPipeline() {
     resetSteps()
     expandedKey.value = null
     running.value = true
+
     try {
       await analyze(files, description.value, locale.value as SupportedLanguage, coordinates.value, (ev: StageEvent) => {
         if (ev.type === 'stage_start') {

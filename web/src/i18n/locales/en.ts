@@ -24,6 +24,8 @@ export default {
     compressedImages: '{n} images compressed',
     noInputWarning: 'Please upload scene images or provide a text description',
     analysisFailed: 'Analysis failed',
+    skillsSection: 'Active Skills',
+    skillsHint: 'Click to toggle skills on/off. Enabled skills will guide the corresponding AI agent during analysis.',
   },
   agent: {
     vision: { label: 'Vision Agent' },
@@ -36,6 +38,7 @@ export default {
     analyzing: 'Analyzing',
     completed: 'Completed',
     failed: 'Failed',
+    skills: 'skills',
   },
   history: {
     title: 'Analysis History',
@@ -139,9 +142,9 @@ export default {
     fail: 'Add failed',
   },
   skills: {
-    modeAlert: 'Prompt Injection Mode Active',
+    modeAlert: 'Skills Active',
     modeAlertDesc:
-      'Skill content is injected directly into agent system prompts. Compatible with all AI Providers.',
+      'Skills enhance AI agent analysis by injecting domain knowledge into agent system prompts. You can also toggle skills directly on the Analysis page.',
     title: 'Skills Management',
     newSkill: 'New Skill',
     name: 'Name',
@@ -152,6 +155,12 @@ export default {
     uploaded: 'Uploaded',
     uploadFailed: 'Upload Failed',
     local: 'Local',
+    boundAgents: 'Bound Agents',
+    configureAgents: 'Configure Agents',
+    view: 'View',
+    raw: 'Raw',
+    rendered: 'Rendered',
+    content: 'Skill Instructions',
     noSkills: 'No Skills yet. Click "New Skill" to create one.',
     noSkillsHint1: 'Skills are reusable AI capability packages following the SKILL.md standard format.',
     noSkillsHint2:
@@ -265,5 +274,5 @@ export default {
     compressedImage: 'Image compressed',
     compressedMultiple: '{n} images compressed',
   },
-  configMCP: 'Configure MCP Tools',
+  configMCP: 'Configure Tools & Skills',
 }
