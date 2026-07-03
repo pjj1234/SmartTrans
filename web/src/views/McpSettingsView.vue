@@ -8,6 +8,7 @@ import {
   listMcpConnections,
   deleteMcpConnection,
   reconnectMcpConnection,
+  updateAgentMcpSetting,
   type McpConnectionStatus,
 } from '@/api/client'
 import AddMcpDialog from '@/components/AddMcpDialog.vue'
@@ -73,6 +74,20 @@ async function handleReconnect(row: any) {
   }
 }
 
+const ALL_AGENTS = ['vision', 'severity', 'liability', 'report']
+
+async function applyToAllAgents(connectionId: string) {
+  const results = await Promise.allSettled(
+    ALL_AGENTS.map((name) => updateAgentMcpSetting(name, connectionId, true)),
+  )
+  const failed = results.filter((r) => r.status === 'rejected').length
+  if (failed === 0) {
+    ElMessage.success(t('mcp.appliedToAll'))
+  } else {
+    ElMessage.warning(t('mcp.applyPartial', { ok: results.length - failed, fail: failed }))
+  }
+}
+
 onMounted(load)
 </script>
 
@@ -121,8 +136,15 @@ onMounted(load)
             </template>
           </el-table-column>
           <el-table-column prop="toolCount" :label="t('mcp.toolCount')" width="80" align="center" />
-          <el-table-column :label="t('mcp.actions')" width="160">
+          <el-table-column :label="t('mcp.actions')" width="240">
             <template #default="{ row }">
+              <el-button
+                v-if="row.status === 'connected'"
+                size="small"
+                @click="applyToAllAgents(row.id)"
+              >
+                {{ t('mcp.applyToAll') }}
+              </el-button>
               <el-button
                 v-if="row.status === 'error' || row.status === 'stopped'"
                 size="small"

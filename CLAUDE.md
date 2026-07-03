@@ -13,7 +13,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | Rebuild RAG vector store | `npm run rag:ingest` |
 | Production build (frontend → `web/dist`) | `npm run build` |
 | Start server in production | `npm start` |
-| Test API endpoints | `npm --prefix server run test:api` |
+| Test API endpoints (needs `TEST_IMAGE` env or path arg) | `npm --prefix server run test:api` |
 
 **server scripts** (run from `server/`): `npm run dev` (tsx), `npm run dev:watch` (tsx watch), `npm run typecheck` (tsc --noEmit), `npm run rag:ingest`, `npm run test:api`
 **web scripts** (run from `web/`): `npm run dev` (vite), `npm run build`, `npm run preview`, `npm run typecheck` (vue-tsc)
@@ -37,6 +37,7 @@ Express (server/src/index.ts)
   ├─ GET/POST /api/reports/*   ← CRUD on analyzed reports (SQLite)
   ├─ GET/POST /api/knowledge/* ← RAG knowledge base search, upload, & stats
   ├─ GET|POST|DELETE /api/mcp/* ← MCP connection management & agent tool binding
+  ├─ GET|POST|DELETE /api/skills/* ← skill injection management & per-agent enablement
   ├─ GET /api/health
   └─ Static: /uploads/* (uploaded images), web/dist/* (prod SPA fallback)
 
@@ -44,7 +45,10 @@ Vue 3 SPA (web/src/)
   ├─ AnalyzeView   ← upload images + text, watch SSE progress, see final report
   ├─ HistoryView   ← browse past reports with detail dialog
   ├─ KnowledgeView ← search legal knowledge base, upload/delete documents
-  └─ McpSettingsView ← manage MCP connections + per-agent tool enablement (lazy-loaded)
+  ├─ McpSettingsView ← manage MCP connections + per-agent tool enablement (lazy-loaded)
+  └─ SkillsView    ← manage skills injection + per-agent enablement (lazy-loaded)
+
+**SSE pipeline client** (`composables/useAnalysisPipeline.ts`): The core frontend composable that drives the analysis flow — manages step state machine (wait→process→finish/error), auto-compresses images >512KB, feeds `StageEvent` SSE stream into reactive step cards via the `analyze()` API client.
 ```
 
 During dev, Vite proxies `/api` and `/uploads` to `http://localhost:28123` (matching the server's default `PORT`). In production, Express serves `web/dist` directly.
@@ -76,6 +80,7 @@ This single-stage approach avoids the double latency of the old two-phase patter
 - **Embedding** (`ingest.ts`): Batch CLI using `embedMany()` with Qwen3-Embedding-8B (4096 dims)
 - **Storage** (`store.ts`): `better-sqlite3` + `sqlite-vec` virtual table (`vec_kb_chunks`) for vector similarity search. Runtime uploads go through the same embed→insert flow via the knowledge routes
 - **Retrieval** (`retriever.ts`): Embeds query → KNN on vec0 table → returns top-k chunks with source/article metadata
+- **Tool** (`tool.ts`): AI SDK `tool()` definition (`searchLegalKnowledge`) for agentic RAG — agents can call this to retrieve laws on-demand during generation
 
 Rebuild the vector store after changing knowledge files: `npm run rag:ingest`. Individual documents can also be uploaded/deleted at runtime via `POST/DELETE /api/knowledge/documents`.
 
@@ -89,6 +94,7 @@ Model Context Protocol integration allows agents to call external tools during a
 - **Store** (`store.ts`): Persists connection configs (`mcp_connections` table) and per-agent enablement settings (`agent_mcp_settings` table)
 - **Types** (`types.ts`): `McpConnectionConfig` (transport: http/sse/stdio), `McpConnectionStatus`, `AgentMcpSetting`
 - **Routes** (`routes/mcp.routes.ts`): `GET/POST/DELETE /api/mcp/connections`, `GET/PUT /api/mcp/agent-settings`, `GET /api/mcp/status`
+- **PDF Server** (`pdf-server.ts`): Stdio MCP server implementing the `generate_report_pdf` tool — JSON-RPC 2.0 over stdin/stdout, used by the `system-pdf-generator` preset connection
 
 MCP is gated by the `MCP_ENABLED` env var (defaults to `false`). When disabled, all `/api/mcp/*` routes (except `/status`) return 404 and agents run without external tools.
 
@@ -121,6 +127,8 @@ SQLite via `better-sqlite3` with WAL mode + `sqlite-vec` extension. File: `serve
 | `vec_kb_chunks` | Virtual table (vec0) — float[4096] embeddings for vector search |
 | `mcp_connections` | MCP server connection configs and status (includes `is_system` flag) |
 | `agent_mcp_settings` | Per-agent enable/disable flags for each MCP connection |
+| `skills` | Skill metadata (name, description, source path, bundled files) |
+| `agent_skill_settings` | Per-agent enable/disable flags for each skill |
 
 Timestamps use Beijing time (`Asia/Shanghai`, `datetime('now', '+8 hours')`).
 
@@ -140,3 +148,18 @@ All three models go through SiliconFlow's OpenAI-compatible endpoint. Three sepa
 - **Knowledge documents**: `uploadKnowledge.single('file')` — max 1 file, 5MB, `.md`/`.txt`/`.markdown` only
 
 Uploaded files are stored in `server/data/uploads/` with random UUID filenames.
+
+## i18n System (server/src/i18n/index.ts)
+
+All agent system prompts, step labels, and PDF text support three languages: `en`, `zh-CN`, `zh-TW`. The frontend sends `Accept-Language` header; the server resolves it via `getLanguage()` and passes localized prompts to each agent. When adding new prompt text, add entries for all three languages.
+
+## Skills System (server/src/skills/)
+
+Skills allow users to inject custom instructions and bundled files into agent system prompts at runtime. Each skill is a directory under `server/data/skills/<skillName>/` containing a `SKILL.md` with YAML frontmatter (`name`, `description`) + markdown body (instructions) + optional bundled files.
+
+- **Manager** (`manager.ts`): Singleton `SkillsManager` — seeds preset skills on startup, loads all from DB, maintains a cache of parsed skills
+- **Store** (`store.ts`): Persists skills (`skills` table) and per-agent enablement (`agent_skill_settings` table)
+- **Inject** (`inject.ts`): `formatSkillForSystemPrompt()` wraps enabled skills in `[Skill: name]...[/Skill: name]` blocks appended to the agent's system prompt
+- **Routes**: `GET|POST|DELETE /api/skills/*`, `GET|PUT /api/skills/agent-settings`
+
+Skills are always active (no env-var gate); enabled skills are injected into agent system prompts at pipeline runtime.

@@ -151,6 +151,9 @@ export async function generatePdf(
     doc.text(`${L.reportTitleLabel}：${report.title ?? L.title}`)
     doc.text(`${L.generatedAt}：${new Date().toLocaleString(dateLocaleMap[language], { timeZone: 'Asia/Shanghai' })}`)
     doc.text(`${L.severityLevel}：${severityText}`)
+    if (report.location) {
+      doc.text(`${L.location}：${report.location}`)
+    }
     doc.moveDown(0.6)
 
     // ===== Accident Summary =====

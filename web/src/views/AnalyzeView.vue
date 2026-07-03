@@ -14,6 +14,7 @@ const mcpEnabled = inject<boolean>('mcpEnabled', false)
 const {
   fileList,
   description,
+  coordinates,
   running,
   errorMsg,
   finalReport,
@@ -59,6 +60,12 @@ function onConfigureAgent(agentKey: string) {
                 type="textarea"
                 :rows="5"
                 :placeholder="t('analyze.descriptionPlaceholder')"
+              />
+            </el-form-item>
+            <el-form-item :label="t('analyze.coordinates')">
+              <el-input
+                v-model="coordinates"
+                placeholder="lng,lat"
               />
             </el-form-item>
             <div class="actions">

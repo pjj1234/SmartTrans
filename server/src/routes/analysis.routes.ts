@@ -14,6 +14,8 @@ const VALID_LANGUAGES: SupportedLanguage[] = ['en', 'zh-CN', 'zh-TW']
 router.post('/analyze', upload.array('images', 6), async (req, res) => {
   const files = (req.files as Express.Multer.File[] | undefined) ?? []
   const description = typeof req.body?.description === 'string' ? req.body.description : ''
+  const coordinates = typeof req.body?.coordinates === 'string' ? req.body.coordinates : ''
+  const timestamp = typeof req.body?.timestamp === 'string' ? req.body.timestamp : ''
   const images = files.map((f) => fs.readFileSync(f.path))
   const imagePaths = files.map((f) => path.basename(f.path))
 
@@ -35,7 +37,7 @@ router.post('/analyze', upload.array('images', 6), async (req, res) => {
     }
   }
 
-  log.info(`POST /analyze — images ${files.length}, language: ${language}, description: "${description.slice(0, 80)}", skills: ${skillSelections?.length ?? 0}`)
+  log.info(`POST /analyze — images ${files.length}, language: ${language}, description: "${description.slice(0, 80)}", coords: "${coordinates}", skills: ${skillSelections?.length ?? 0}`)
 
   res.setHeader('Content-Type', 'text/event-stream; charset=utf-8')
   res.setHeader('Cache-Control', 'no-cache, no-transform')
@@ -45,7 +47,7 @@ router.post('/analyze', upload.array('images', 6), async (req, res) => {
 
   const send = (data: unknown) => res.write(`data: ${JSON.stringify(data)}\n\n`)
 
-  for await (const ev of runPipeline(images, imagePaths, description, language, skillSelections)) {
+  for await (const ev of runPipeline(images, imagePaths, description, language, skillSelections, coordinates, timestamp)) {
     if (ev.type === 'error') {
       log.error('Pipeline error', ev.message)
     }

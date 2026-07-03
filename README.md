@@ -37,7 +37,7 @@ copy server\.env.example server\.env   # 然后填入 API key
 # 3. 构建 RAG 知识库（读取 server/data/knowledge/*）
 npm run rag:ingest
 
-# 4. 启动前后端（server:3000 / web:5173）
+# 4. 启动前后端（server:28123 / web:5173）
 npm run dev
 ```
 

@@ -38,6 +38,12 @@ const level = computed(() => {
     </div>
 
     <el-descriptions :column="1" border class="report-desc">
+      <el-descriptions-item v-if="report.generatedAt" :label="t('report.generatedAt')">
+        {{ report.generatedAt }}
+      </el-descriptions-item>
+      <el-descriptions-item v-if="report.location" :label="t('report.location')">
+        {{ report.location }}
+      </el-descriptions-item>
       <el-descriptions-item :label="t('report.summary')">{{ report.summary || t('report.fallback') }}</el-descriptions-item>
       <el-descriptions-item :label="t('report.sceneSituation')">{{ report.sceneSummary || t('report.fallback') }}</el-descriptions-item>
       <el-descriptions-item :label="t('report.liabilityDetermination')">

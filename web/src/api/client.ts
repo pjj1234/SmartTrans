@@ -4,6 +4,7 @@ export interface StageEvent {
   label?: string
   data?: unknown
   skillNames?: string[]
+  toolNames?: string[]
   reportId?: string
   report?: unknown
   message?: string
@@ -14,12 +15,15 @@ export async function analyze(
   files: File[],
   description: string,
   language: string,
+  coordinates: string,
   onEvent: (e: StageEvent) => void,
 ): Promise<void> {
   const fd = new FormData()
   for (const f of files) fd.append('images', f)
   fd.append('description', description)
   fd.append('language', language)
+  fd.append('coordinates', coordinates)
+  fd.append('timestamp', new Date().toISOString())
 
   const res = await fetch('/api/analyze', { method: 'POST', body: fd })
   if (!res.ok || !res.body) throw new Error(`Request failed: HTTP ${res.status}`)

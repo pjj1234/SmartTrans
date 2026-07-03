@@ -15,6 +15,7 @@ export default {
     images: '事故現場圖片',
     description: '文字描述（可選）',
     descriptionPlaceholder: '請描述事故經過、時間、地點、天氣、當事方等資訊',
+    coordinates: '經緯度（經度,緯度）',
     startAnalysis: '開始分析',
     newAnalysis: '新分析',
     pipeline: '多智能體分析流水線',
@@ -105,6 +106,10 @@ export default {
     reconnectSuccess: '重連成功',
     reconnectFailed: '重連失敗',
     loadFailed: '載入 MCP 配置失敗',
+    applyToAll: '應用到所有Agent',
+    appliedToAll: '已應用到所有Agent',
+    applyFailed: '應用失敗',
+    applyPartial: '已應用 {ok} 個，{fail} 個失敗',
   },
   addMcp: {
     title: '新增 MCP 伺服器',
@@ -200,6 +205,8 @@ export default {
   report: {
     title: '交通事故分析報告',
     severityLabel: '嚴重等級：',
+    location: '事發地點',
+    generatedAt: '生成時間',
     summary: '事故概要',
     sceneSituation: '現場情況',
     liabilityDetermination: '責任認定',

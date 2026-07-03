@@ -98,7 +98,9 @@ export function getMcpConnectionByName(name: string): McpConnectionConfig | unde
 export function seedPresetConnection(config: McpConnectionConfig): void {
   const existing = getMcpConnectionByName(config.name)
   if (existing) {
-    // 已存在，覆盖 transport/url/command/args 以确保预设更新生效，同时标记为系统连接
+    // 用户创建的连接与系统预设同名时，跳过覆盖，保护用户数据
+    if (!existing.isSystem) return
+    // 已存在的系统连接：覆盖 transport/url/command/args 以确保预设更新生效
     db.prepare(
       `UPDATE mcp_connections
        SET transport = ?, url = ?, command = ?, args = ?, is_system = 1

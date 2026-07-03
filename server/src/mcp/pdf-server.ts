@@ -37,6 +37,10 @@ const TOOL_DEF = {
         description:
           '事故报告 JSON 字符串，需符合 AccidentReport 结构（title, summary, sceneSummary, severityLevel, liabilityConclusion, citedArticles, recommendations）',
       },
+      language: {
+        type: 'string',
+        description: 'PDF 标签语言：en / zh-CN / zh-TW，默认 en',
+      },
     },
     required: ['reportJson'],
   },
@@ -99,6 +103,7 @@ rl.on('line', async (line: string) => {
           err(id, -32602, 'Missing required argument: reportJson')
           return
         }
+        const language = (params.arguments?.language as string) ?? 'en'
 
         let report: Record<string, unknown>
         try {
@@ -118,7 +123,7 @@ rl.on('line', async (line: string) => {
 
         try {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await generatePdf(report as any, pdfPath)
+          await generatePdf(report as any, pdfPath, language as any)
 
           const result = {
             pdfPath: `pdfs/${pdfFilename}`,

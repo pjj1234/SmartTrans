@@ -5,6 +5,7 @@ export interface AgentStep {
   status: 'wait' | 'process' | 'finish' | 'error'
   data?: unknown
   skillNames?: string[]
+  toolNames?: string[]
 }
 
 // ---- Agent output types (mirrors server/src/agents/schemas.ts) ----
@@ -55,5 +56,7 @@ export interface AccidentReportView {
   severityLevel?: string
   liabilityConclusion?: string
   citedArticles?: string[]
+  location?: string
+  generatedAt?: string
   recommendations?: string[]
 }

@@ -75,6 +75,16 @@ function toggle(key: string): void {
           >
             {{ sn }}
           </el-tag>
+          <el-tag
+            v-for="tn in step.toolNames"
+            :key="tn"
+            size="small"
+            type="primary"
+            effect="plain"
+            class="tool-tag"
+          >
+            {{ tn }}
+          </el-tag>
           <el-icon v-if="step.data" class="toggle-icon" :class="{ rotated: expandedKey === step.key }">
             <svg viewBox="0 0 1024 1024" width="14" height="14">
               <path
