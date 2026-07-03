@@ -22,6 +22,8 @@ export default {
     compressedImages: '已压缩 {n} 张图片',
     noInputWarning: '请上传事故现场图片或填写文字描述',
     analysisFailed: '分析失败',
+    skillsSection: '启用的技能',
+    skillsHint: '点击切换技能开关。启用的技能将在分析时指导对应的 AI 智能体。',
   },
   agent: {
     vision: { label: '图像识别智能体' },
@@ -34,6 +36,7 @@ export default {
     analyzing: '分析中',
     completed: '完成',
     failed: '失败',
+    skills: '技能',
   },
   history: {
     title: '历史分析报告',
@@ -133,8 +136,9 @@ export default {
     fail: '添加失败',
   },
   skills: {
-    modeAlert: '当前使用 Prompt 注入模式',
-    modeAlertDesc: 'Skills 内容将直接注入到智能体的系统提示词中，兼容所有 AI Provider。',
+    modeAlert: 'Skills 使用中',
+    modeAlertDesc:
+      'Skills 通过将领域知识注入智能体系统提示词来增强 AI 分析能力。你也可以在分析页面直接切换技能。',
     title: '技能管理 (Skills)',
     newSkill: '新建技能',
     name: '名称',
@@ -145,6 +149,12 @@ export default {
     uploaded: '已上传',
     uploadFailed: '上传失败',
     local: '本地',
+    boundAgents: '已绑定智能体',
+    configureAgents: '配置智能体',
+    view: '查看',
+    raw: '源码',
+    rendered: '渲染',
+    content: '技能指令',
     noSkills: '暂无 Skills，点击「新建技能」创建',
     noSkillsHint1: 'Skills 是可复用的 AI 领域能力包，遵循 SKILL.md 标准格式。',
     noSkillsHint2: '创建 Skill 后在此启用，然后在分析页面的智能体设置中绑定到具体智能体。',
@@ -255,5 +265,5 @@ export default {
     compressedImage: '已压缩图片',
     compressedMultiple: '已压缩 {n} 张图片',
   },
-  configMCP: '配置 MCP 工具',
+  configMCP: '配置工具与技能',
 }

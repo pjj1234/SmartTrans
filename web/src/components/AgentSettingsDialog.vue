@@ -97,8 +97,8 @@ async function loadSkills() {
       listSkills(),
       getAgentSkillSettings(props.agentName),
     ])
-    // Only show globally enabled skills
-    skills.value = allSkills.filter((s) => s.enabled)
+    // Only show globally enabled skills that belong to this agent
+    skills.value = allSkills.filter((s) => s.enabled && s.name.startsWith(props.agentName))
     skillSettings.value = sets.filter((s) => skills.value.some((sk) => sk.id === s.skillId))
   } catch {
     ElMessage.error(t('settings.skillsLoadFail'))

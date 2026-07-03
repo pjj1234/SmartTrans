@@ -1,60 +1,61 @@
 ---
 name: liability-enhancer
 description: |
-  交通事故责任认定增强技能。提供详细的归责逻辑指引，
-  包括常见事故形态的责任划分原则、过错程度判定标准、
-  以及多车连环事故的责任链分析方法。
-  当需要对责任判定结果进行深度分析或复核时使用此技能。
+  Enhanced traffic accident liability determination guidance. Provides detailed
+  fault allocation logic, common accident-type responsibility split reference tables,
+  multi-vehicle chain-of-liability analysis methods, and special circumstance 
+  considerations. Use when liability determination requires depth or second review.
 ---
 
-# 交通事故责任认定增强
+# Traffic Accident Liability Determination Enhancement
 
-## 概述
+## Overview
 
-本技能为责任判定智能体提供更详细的归责逻辑指引，补充 RAG 法律条文检索之外的实务判断经验。
+This skill provides the Liability Agent with detailed fault allocation guidance, 
+supplementing RAG legal article retrieval with practical judgment experience.
 
-## 指令
+## Instructions
 
-### 1. 过错判定标准
+### 1. Fault Assessment Criteria
 
-在划分责任时，按以下优先级评估各方过错：
+When allocating fault, evaluate each party's conduct by the following priority:
 
-1. **违法程度** — 违反道路交通安全法的严重程度（严重违法 > 一般违法 > 轻微违章）
-2. **因果关系** — 违法行为与事故结果之间的因果关系强度（直接原因 > 间接原因 > 背景因素）
-3. **避让可能性** — 各方是否有合理的避让机会和时间（可避让而未避让 > 难以避让 > 无法避让）
+1. **Violation Severity** — Severity of traffic law violation (serious violation > general violation > minor infraction)
+2. **Causation** — Strength of causal link between the violation and the accident outcome (direct cause > indirect cause > background factor)
+3. **Avoidance Opportunity** — Whether each party had reasonable opportunity and time to avoid the collision (could have avoided but did not > difficult to avoid > impossible to avoid)
 
-### 2. 常见事故形态责任划分参考
+### 2. Common Accident Type Responsibility Reference
 
-| 事故形态 | 常见责任划分 |
-|---------|------------|
-| 追尾事故 | 后车全责或主责（70%-100%），前车违规变道除外 |
-| 变道碰撞 | 变道方主责（70%-100%），对方超速可减轻 |
-| 路口碰撞 | 违反信号灯方主责（70%-100%），双方均违反则按过错程度分摊 |
-| 转弯与直行碰撞 | 转弯方主责（70%-100%），直行方有过错可减轻 |
-| 倒车事故 | 倒车方全责（100%） |
-| 开门碰撞 | 开门方全责（100%） |
-| 行人横穿 | 机动车通常主责，行人有过错可减轻（机动车一般不低于 60%） |
-| 非机动车事故 | 参照机动车规则，非机动车过错可减轻机动车责任 |
+| Accident Type | Typical Responsibility Allocation |
+|---------------|----------------------------------|
+| Rear-end collision | Following vehicle bears full or majority responsibility (70%-100%), unless lead vehicle made illegal lane change |
+| Lane-change collision | Lane-changing party bears majority responsibility (70%-100%), reduced if other party was speeding |
+| Intersection collision | Signal/rule violator bears majority responsibility (70%-100%); if both violated, apportion by degree of fault |
+| Turn vs. straight collision | Turning party bears majority responsibility (70%-100%), reduced if straight-through party was at fault |
+| Reversing accident | Reversing party bears full responsibility (100%) |
+| Door-opening collision | Door-opening party bears full responsibility (100%) |
+| Pedestrian crossing | Motor vehicle typically bears majority responsibility; reduced if pedestrian was at fault (motor vehicle generally not below 60%) |
+| Non-motor vehicle accident | Apply motor vehicle rules by analogy; non-motor vehicle fault can reduce motor vehicle responsibility |
 
-### 3. 多车连环事故分析方法
+### 3. Multi-Vehicle Chain Accident Analysis
 
-对于涉及三辆及以上车辆的事故，采用责任链分析法：
+For accidents involving three or more vehicles, use the chain-of-liability analysis method:
 
-1. 将事故拆解为"首次碰撞 → 后续碰撞 → 次生事故"的链条
-2. 每次碰撞独立分析责任方和过错行为
-3. 注意区分"引发碰撞"与"加重后果"的不同责任性质
-4. 最终责任 = 各节点责任按损害后果贡献度的加权综合
+1. Decompose the accident into a chain: "Initial Collision → Subsequent Collision(s) → Secondary Incident(s)"
+2. Analyze fault and wrongful conduct independently for each collision in the chain
+3. Distinguish between "causing the collision" and "aggravating the consequences" — these are different liability types
+4. Final responsibility = weighted composite of each node's liability by contribution to overall harm
 
-### 4. 特殊情形考量
+### 4. Special Circumstances
 
-- **不可抗力**（暴雨、雪灾、地震等）：减轻当事方责任，但不免除合理注意义务
-- **紧急避险**：避险方减轻或免除责任，避险受益方可能承担补偿责任
-- **好意同乘**：驾驶人责任适当减轻（通常减轻 10%-20%）
-- **双方均无明显过错**：按公平原则分摊，通常各 50%
+- **Force Majeure** (rainstorm, blizzard, earthquake, etc.): Reduces party responsibility but does not eliminate the duty of reasonable care
+- **Emergency Avoidance**: Avoiding party's responsibility reduced or exempted; the party benefiting from the avoidance may bear compensatory liability
+- **Gratuitous Carriage**: Driver's responsibility appropriately reduced (typically 10%-20% reduction)
+- **No Clear Fault on Either Side**: Apportion by equitable principles, typically 50% each
 
-## 输出要求
+## Output Requirements
 
-- 每个当事方的过错行为必须明确指出具体的违法条款或违规行为描述
-- 责任比例应为 5% 的整数倍
-- 所有责任方比例之和必须等于 100%
-- 如果存在争议情形，在 reasoning 中列出不同观点及其依据
+- Each party's wrongful conduct must reference specific violation provisions or describe the specific wrongful behavior
+- Fault percentages should be multiples of 5%
+- The sum of all party fault percentages must equal 100%
+- If there are disputed scenarios, list different viewpoints and their supporting reasoning in the conclusion

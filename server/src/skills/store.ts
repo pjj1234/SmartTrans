@@ -54,11 +54,21 @@ export function setAgentSkillSetting(
   skillId: string,
   enabled: boolean,
 ): void {
-  db.prepare(`
-    INSERT INTO agent_skill_settings (agent_name, skill_id, enabled)
-    VALUES (?, ?, ?)
-    ON CONFLICT(agent_name, skill_id) DO UPDATE SET enabled = excluded.enabled
-  `).run(agentName, skillId, enabled ? 1 : 0)
+  const tx = db.transaction(() => {
+    // When enabling a skill for an agent, disable all other skills for that agent
+    // (ensures at most 1 skill per agent)
+    if (enabled) {
+      db.prepare(
+        'UPDATE agent_skill_settings SET enabled = 0 WHERE agent_name = ? AND skill_id != ?',
+      ).run(agentName, skillId)
+    }
+    db.prepare(`
+      INSERT INTO agent_skill_settings (agent_name, skill_id, enabled)
+      VALUES (?, ?, ?)
+      ON CONFLICT(agent_name, skill_id) DO UPDATE SET enabled = excluded.enabled
+    `).run(agentName, skillId, enabled ? 1 : 0)
+  })
+  tx()
 }
 
 export function getAgentSkillSettings(agentName?: string): AgentSkillSetting[] {

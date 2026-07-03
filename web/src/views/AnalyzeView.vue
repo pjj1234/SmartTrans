@@ -61,6 +61,7 @@ function onConfigureAgent(agentKey: string) {
                 :placeholder="t('analyze.descriptionPlaceholder')"
               />
             </el-form-item>
+
             <div class="actions">
               <el-button type="primary" :loading="running" @click="run">{{ t('analyze.startAnalysis') }}</el-button>
               <el-button v-if="finalReport" :icon="Refresh" @click="resetAll">{{ t('analyze.newAnalysis') }}</el-button>
@@ -106,5 +107,4 @@ function onConfigureAgent(agentKey: string) {
 .err {
   margin-top: 16px;
 }
-
 </style>
