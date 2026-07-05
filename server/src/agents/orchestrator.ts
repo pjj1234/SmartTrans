@@ -151,21 +151,28 @@ export async function* runPipeline(
   log.info(`Pipeline started — images ${images.length}, language: ${language}, description: "${description.slice(0, 80)}", coords: "${coordinates ?? ''}", time: "${timestamp ?? ''}"`)
 
   try {
-    // Pre-fetch MCP tools for each agent (one query, avoid per-stage repeats)
+    // Pre-fetch MCP tools — report agent 只调用一次，从中提取 generate_report_pdf 和 maps_regeocode
+    const reportTools = await mcpManager.getToolsForAgent('report')
+    const pdfToolKey = Object.keys(reportTools).find(
+      (k) => k === 'generate_report_pdf' || k.endsWith('__generate_report_pdf'),
+    ) ?? ''
+    const regeocodeToolKey = Object.keys(reportTools).find(
+      (k) => k === 'maps_regeocode' || k.endsWith('__maps_regeocode'),
+    ) ?? ''
+    const pdfTool = pdfToolKey ? reportTools[pdfToolKey] : undefined
+    const regeocodeTool = regeocodeToolKey ? reportTools[regeocodeToolKey] : undefined
+
     const agentTools = {
       vision: await mcpManager.getToolsForAgent('vision'),
       severity: await mcpManager.getToolsForAgent('severity'),
       liability: await mcpManager.getToolsForAgent('liability'),
-      report: await mcpManager.getToolsForAgent('report', ['generate_report_pdf']),
+      report: pdfTool ? { [pdfToolKey]: pdfTool } : {},
     }
 
     // ---- 程序化逆地理编码：使用前端传入的坐标直接调用 maps_regeocode ----
     let locationAddress: string | undefined
     const coordStr = coordinates ? validateCoords(coordinates) : null
     if (coordStr) {
-      // 获取 maps_regeocode 工具（独立于 report 的 toolFilter）
-      const regeocodeTools = await mcpManager.getToolsForAgent('report', ['maps_regeocode'])
-      const regeocodeTool = regeocodeTools['maps_regeocode']
       if (regeocodeTool) {
         try {
           const rawResult = await regeocodeTool.execute({ location: coordStr })
@@ -231,9 +238,6 @@ export async function* runPipeline(
     log.info(`Report persisted, id=${reportId}`)
 
     // ---- PDF generation (via MCP tool) ----
-    const pdfToolKey = Object.keys(agentTools.report).find(
-      (k) => k === 'generate_report_pdf' || k.endsWith('__generate_report_pdf'),
-    )
     if (pdfToolKey) {
       try {
         const pdfTool = agentTools.report[pdfToolKey]
