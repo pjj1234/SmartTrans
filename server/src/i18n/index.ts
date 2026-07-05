@@ -72,9 +72,9 @@ export function severityUserPrompt(
 
 // ---- Liability agent ----
 export const LIABILITY_SYSTEM_WITH_ARTICLES: Record<SupportedLanguage, string> = {
-  en: 'You are a traffic accident liability determination agent. You MUST strictly base your liability allocation on the provided legal statutes. The sum of all fault percentages must equal 100. citedArticles can ONLY reference statutes from the provided list (format: "Source ArticleNumber"). DO NOT cite any statutes not provided.',
-  'zh-CN': '你是交通事故责任判定智能体。必须严格依据给出的法律法规条文进行责任划分，所有责任比例之和应为 100。citedArticles 只能引用下方提供的法条（格式："来源 条号"），严禁引用未提供的条文。',
-  'zh-TW': '你是交通事故責任判定智能體。必須嚴格依據給出的法律法規條文進行責任劃分，所有責任比例之和應為 100。citedArticles 只能引用下方提供的法條（格式："來源 條號"），嚴禁引用未提供的條文。',
+  en: 'You are a traffic accident liability determination agent. You MUST strictly base your liability allocation on the provided legal statutes. The sum of all fault percentages must equal 100. citedArticles can ONLY reference statutes from the provided list. DO NOT cite any statutes not provided.\n\nFor each citedArticle you MUST include:\n- citation: the article reference (e.g. "Road Traffic Safety Law Article 76")\n- content: the EXACT full legal text from the provided statutes, copied verbatim. Do NOT paraphrase, summarize, or abbreviate the content.',
+  'zh-CN': '你是交通事故责任判定智能体。必须严格依据给出的法律法规条文进行责任划分，所有责任比例之和应为 100。citedArticles 只能引用下方提供的法条，严禁引用未提供的条文。\n\n每个 citedArticle 必须包含：\n- citation：法条引用（如"《中华人民共和国道路交通安全法》第76条"）\n- content：从提供的法条中逐字复制的完整原文。不得改写、摘要或删减。',
+  'zh-TW': '你是交通事故責任判定智能體。必須嚴格依據給出的法律法規條文進行責任劃分，所有責任比例之和應為 100。citedArticles 只能引用下方提供的法條，嚴禁引用未提供的條文。\n\n每個 citedArticle 必須包含：\n- citation：法條引用（如"《中華民國道路交通安全規則》第76條"）\n- content：從提供的法條中逐字複製的完整原文。不得改寫、摘要或刪減。',
 }
 
 export const LIABILITY_SYSTEM_WITHOUT_ARTICLES: Record<SupportedLanguage, string> = {
@@ -86,18 +86,16 @@ export const LIABILITY_SYSTEM_WITHOUT_ARTICLES: Record<SupportedLanguage, string
 export function liabilityUserPrompt(
   language: SupportedLanguage,
   scene: unknown,
-  severity: unknown,
   description: string,
   legalContext: string,
 ): string {
   const templates: Record<SupportedLanguage, string> = {
-    en: `Scene Analysis (JSON):\n{scene}\n\nSeverity Assessment (JSON):\n{severity}\n\nSupplementary Description: {desc}\n\nApplicable Legal Statutes:\n{legal}`,
-    'zh-CN': `现场识别(JSON)：\n{scene}\n\n严重程度(JSON)：\n{severity}\n\n补充描述：{desc}\n\n可参考的法律法规条文：\n{legal}`,
-    'zh-TW': `現場識別(JSON)：\n{scene}\n\n嚴重程度(JSON)：\n{severity}\n\n補充描述：{desc}\n\n可參考的法律法規條文：\n{legal}`,
+    en: `Scene Analysis (JSON):\n{scene}\n\nSupplementary Description: {desc}\n\nApplicable Legal Statutes:\n{legal}`,
+    'zh-CN': `现场识别(JSON)：\n{scene}\n\n补充描述：{desc}\n\n可参考的法律法规条文：\n{legal}`,
+    'zh-TW': `現場識別(JSON)：\n{scene}\n\n補充描述：{desc}\n\n可參考的法律法規條文：\n{legal}`,
   }
   return templates[language]
     .replace('{scene}', JSON.stringify(scene))
-    .replace('{severity}', JSON.stringify(severity))
     .replace('{desc}', description || NONE_TEXT[language])
     .replace('{legal}', legalContext)
 }

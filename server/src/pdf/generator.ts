@@ -175,7 +175,13 @@ export async function generatePdf(
     if (report.citedArticles && report.citedArticles.length > 0) {
       sectionHeader(doc, L.citedArticles)
       for (const article of report.citedArticles) {
-        doc.font('serif').fontSize(10).fillColor('#333').text(`• ${article}`, { indent: 10 })
+        if (typeof article === 'string') {
+          doc.font('serif').fontSize(10).fillColor('#333').text(`• ${article}`, { indent: 10 })
+        } else {
+          doc.font('serif').fontSize(10).fillColor('#1a5fb4').text(article.citation, { indent: 10 })
+          doc.font('serif').fontSize(9).fillColor('#555').text(article.content, { indent: 20 })
+          doc.moveDown(0.3)
+        }
       }
       doc.moveDown(0.6)
     }

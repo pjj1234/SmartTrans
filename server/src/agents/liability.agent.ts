@@ -5,7 +5,6 @@ import {
   getSchemas,
   type LiabilityAnalysis,
   type SceneDescription,
-  type SeverityAssessment,
 } from './schemas'
 import { generateStructured } from './helpers'
 import { formatSkillForSystemPrompt } from '../skills/inject'
@@ -24,7 +23,6 @@ const log = createLogger('liability-agent')
 /** Liability determination agent: uses RAG-retrieved legal statutes for fault allocation */
 export async function analyzeLiability(
   scene: SceneDescription,
-  severity: SeverityAssessment,
   description: string,
   language: SupportedLanguage = 'en',
   tools?: Record<string, any>,
@@ -56,7 +54,7 @@ export async function analyzeLiability(
     schema: liabilitySchema,
     tools,
     system,
-    prompt: LANGUAGE_PREFIX[language] + liabilityUserPrompt(language, scene, severity, description, legalContext),
+    prompt: LANGUAGE_PREFIX[language] + liabilityUserPrompt(language, scene, description, legalContext),
   })
 
   log.info(`Model returned citedArticles count: ${object.citedArticles?.length ?? 0}`, object.citedArticles)

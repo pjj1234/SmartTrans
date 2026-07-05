@@ -53,15 +53,14 @@ const level = computed(() => {
 
     <div v-if="report.citedArticles?.length" class="report-section">
       <h4>{{ t('report.citedArticles') }}</h4>
-      <el-tag
+      <div
         v-for="(a, i) in report.citedArticles"
         :key="i"
-        type="info"
-        effect="plain"
-        class="article-tag"
+        class="article-item"
       >
-        {{ a }}
-      </el-tag>
+        <div class="article-citation">{{ typeof a === 'string' ? a : a.citation }}</div>
+        <div v-if="typeof a === 'object' && a.content" class="article-content">{{ a.content }}</div>
+      </div>
     </div>
 
     <div v-if="report.recommendations?.length" class="report-section">
@@ -100,8 +99,27 @@ const level = computed(() => {
 .report-section h4 {
   margin: 0 0 8px;
 }
-.article-tag {
-  margin: 0 8px 8px 0;
+.article-item {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 6px;
+  background: var(--el-fill-color-lighter);
+}
+.article-item:last-child {
+  margin-bottom: 0;
+}
+.article-citation {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--el-color-primary);
+  margin-bottom: 6px;
+}
+.article-content {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  line-height: 1.7;
+  white-space: pre-wrap;
 }
 .rec-list {
   margin: 0;

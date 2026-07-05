@@ -41,10 +41,15 @@ export interface LiabilityParty {
   reasoning: string
 }
 
+export interface CitedArticle {
+  citation: string
+  content: string
+}
+
 /** 责任判定智能体输出 */
 export interface LiabilityAnalysis {
   parties: LiabilityParty[]
-  citedArticles: string[]
+  citedArticles: CitedArticle[]
   conclusion: string
 }
 
@@ -55,7 +60,7 @@ export interface AccidentReportView {
   sceneSummary?: string
   severityLevel?: string
   liabilityConclusion?: string
-  citedArticles?: string[]
+  citedArticles?: CitedArticle[]
   location?: string
   generatedAt?: string
   recommendations?: string[]

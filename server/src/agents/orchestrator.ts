@@ -207,17 +207,19 @@ export async function* runPipeline(
     yield { type: 'stage_complete', stage: 'vision', label: labels.vision, data: scene, skillNames: skillNames(agentSkills.vision), toolNames: Object.keys(agentTools.vision) }
     log.info('Stage complete: vision', scene)
 
-    // ---- 2. Severity ----
+    // ---- 2. Severity + 3. Liability (parallel) ----
     yield { type: 'stage_start', stage: 'severity', label: labels.severity, skillNames: skillNames(agentSkills.severity), toolNames: Object.keys(agentTools.severity) }
-    log.info('Stage start: severity')
-    const severity = await assessSeverity(scene, description, language, agentTools.severity, agentSkills.severity)
+    yield { type: 'stage_start', stage: 'liability', label: labels.liability, skillNames: skillNames(agentSkills.liability), toolNames: Object.keys(agentTools.liability) }
+    log.info('Stage start: severity + liability (parallel)')
+
+    const [severity, liabilityResult] = await Promise.all([
+      assessSeverity(scene, description, language, agentTools.severity, agentSkills.severity),
+      analyzeLiability(scene, description, language, agentTools.liability, agentSkills.liability),
+    ])
+    const liability = liabilityResult.analysis
+
     yield { type: 'stage_complete', stage: 'severity', label: labels.severity, data: severity, skillNames: skillNames(agentSkills.severity), toolNames: Object.keys(agentTools.severity) }
     log.info('Stage complete: severity', severity)
-
-    // ---- 3. Liability (RAG) ----
-    yield { type: 'stage_start', stage: 'liability', label: labels.liability, skillNames: skillNames(agentSkills.liability), toolNames: Object.keys(agentTools.liability) }
-    log.info('Stage start: liability')
-    const { analysis: liability } = await analyzeLiability(scene, severity, description, language, agentTools.liability, agentSkills.liability)
     yield { type: 'stage_complete', stage: 'liability', label: labels.liability, data: liability, skillNames: skillNames(agentSkills.liability), toolNames: Object.keys(agentTools.liability) }
     log.info(`Stage complete: liability — citedArticles=${liability.citedArticles?.length ?? 0}`, liability.citedArticles)
 

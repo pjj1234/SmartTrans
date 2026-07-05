@@ -121,10 +121,21 @@ export function getSchemas(language: SupportedLanguage) {
           '各当事方责任划分',
           '各當事方責任劃分'),
       ),
-    citedArticles: z.array(z.string()).describe(
-      L('Cited legal articles (source + article number)',
-        '引用的法条（来源 + 条号）',
-        '引用的法條（來源 + 條號）'),
+    citedArticles: z.array(z.object({
+      citation: z.string().describe(
+        L('Article citation, e.g. "Road Traffic Safety Law Article 76"',
+          '法条引用，如"《中华人民共和国道路交通安全法》第76条"',
+          '法條引用，如"《中華人民共和國道路交通安全法》第76條"'),
+      ),
+      content: z.string().describe(
+        L('The EXACT full text of the cited legal provision, copied verbatim from the provided statutes',
+          '所引用法律条文的具体内容原文，必须从提供的法条中逐字复制',
+          '所引用法律條文的具體內容原文，必須從提供的法條中逐字複製'),
+      ),
+    })).describe(
+      L('Cited legal articles with full text',
+        '引用法条及原文',
+        '引用法條及原文'),
     ),
     conclusion: z.string().describe(
       L('Liability determination conclusion',
@@ -160,10 +171,21 @@ export function getSchemas(language: SupportedLanguage) {
         '责任认定结论',
         '責任認定結論'),
     ),
-    citedArticles: z.array(z.string()).describe(
-      L('Cited legal articles',
-        '引用法条',
-        '引用法條'),
+    citedArticles: z.array(z.object({
+      citation: z.string().describe(
+        L('Article citation',
+          '法条引用',
+          '法條引用'),
+      ),
+      content: z.string().describe(
+        L('Full text of the cited legal provision',
+          '所引用法律条文的具体内容原文',
+          '所引用法律條文的具體內容原文'),
+      ),
+    })).describe(
+      L('Cited legal articles with full text, copied from liability determination',
+        '引用法条及原文，从责任判定中复制',
+        '引用法條及原文，從責任判定中複製'),
     ),
     location: z.string().optional().describe(
       L('Accident location address, resolved from coordinates via geocoding',
