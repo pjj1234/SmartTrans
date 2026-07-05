@@ -6,6 +6,16 @@ dist/
 .env
 server/.env
 
+# AI agent config files
+CLAUDE.md
+AGENT.md
+AGENTS.md
+CLAUDE.local.md
+.cursor/
+.cursorrules
+.github/copilot-instructions.md
+.windsurf/
+
 # data (sqlite + uploads), keep knowledge corpus
 server/data/app.db
 server/data/app.db-*
