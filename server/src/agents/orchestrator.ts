@@ -162,11 +162,12 @@ export async function* runPipeline(
     const pdfTool = pdfToolKey ? reportTools[pdfToolKey] : undefined
     const regeocodeTool = regeocodeToolKey ? reportTools[regeocodeToolKey] : undefined
 
+    // 只有 report agent 允许使用 MCP 工具
     const agentTools = {
-      vision: await mcpManager.getToolsForAgent('vision'),
-      severity: await mcpManager.getToolsForAgent('severity'),
-      liability: await mcpManager.getToolsForAgent('liability'),
-      report: pdfTool ? { [pdfToolKey]: pdfTool } : {},
+      vision: {},
+      severity: {},
+      liability: {},
+      report: reportTools,
     }
 
     // ---- 程序化逆地理编码：使用前端传入的坐标直接调用 maps_regeocode ----

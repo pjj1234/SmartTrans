@@ -110,10 +110,6 @@ export default {
     reconnectSuccess: 'Reconnected successfully',
     reconnectFailed: 'Reconnection failed',
     loadFailed: 'Failed to load MCP configuration',
-    applyToAll: 'Apply to All Agents',
-    appliedToAll: 'Applied to all agents',
-    applyFailed: 'Apply failed',
-    applyPartial: '{ok} applied, {fail} failed',
   },
   addMcp: {
     title: 'Add MCP Server',

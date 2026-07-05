@@ -109,10 +109,6 @@ export default {
     reconnectSuccess: '重连成功',
     reconnectFailed: '重连失败',
     loadFailed: '加载 MCP 配置失败',
-    applyToAll: '应用到所有Agent',
-    appliedToAll: '已应用到所有Agent',
-    applyFailed: '应用失败',
-    applyPartial: '已应用 {ok} 个，{fail} 个失败',
   },
   addMcp: {
     title: '添加 MCP 服务器',

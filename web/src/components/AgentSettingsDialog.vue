@@ -30,6 +30,8 @@ const dialogVisible = ref(props.visible)
 watch(() => props.visible, (v) => { dialogVisible.value = v })
 watch(dialogVisible, (v) => emit('update:visible', v))
 
+const showMcpSection = computed(() => props.agentName === 'report')
+
 // ---- MCP ----
 const connections = ref<McpConnectionStatus[]>([])
 const mcpSettings = ref<AgentMcpSetting[]>([])
@@ -139,8 +141,8 @@ watch(dialogVisible, (v) => {
     width="580px"
     :close-on-click-modal="false"
   >
-    <!-- MCP Tools -->
-    <div v-loading="loadingMcp" class="section">
+    <!-- MCP Tools (only for report agent) -->
+    <div v-if="showMcpSection" v-loading="loadingMcp" class="section">
       <h4 class="section-title">{{ t('settings.mcpTools') }}</h4>
       <el-empty v-if="!loadingMcp && connections.length === 0" :description="t('settings.noMcp')" />
       <div v-else class="item-list">
@@ -170,7 +172,7 @@ watch(dialogVisible, (v) => {
       </div>
     </div>
 
-    <el-divider />
+    <el-divider v-if="showMcpSection" />
 
     <!-- Skills -->
     <div v-loading="loadingSkills" class="section">
